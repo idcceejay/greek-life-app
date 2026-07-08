@@ -1,6 +1,7 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { useSession } from '../../lib/useSession';
 import { colors } from '../../lib/theme';
 
 /**
@@ -24,6 +25,20 @@ function HomeIcon({ focused }: { focused: boolean }) {
 }
 
 export default function TabLayout() {
+  const { demoMode, loading, session, profile } = useSession();
+
+  if (!demoMode) {
+    if (loading) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      );
+    }
+    if (!session) return <Redirect href="/sign-in" />;
+    if (!profile) return <Redirect href="/onboarding" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

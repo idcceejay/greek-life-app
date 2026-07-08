@@ -1,62 +1,152 @@
-import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, ScreenTitle } from '../../components/ui';
-import { nearby } from '../../lib/mock';
+import MapView, { Marker } from 'react-native-maps';
+import { Avatar } from '../../components/ui';
+import { useSession } from '../../lib/useSession';
+import { useLiveMap, milesBetween, MapPin } from '../../lib/useLiveMap';
+import { supabase, supabaseConfigured } from '../../lib/supabase';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
-/**
- * Map — live member map + "Nearby" bottom sheet (PDF page 1).
- * The map canvas is a styled placeholder; swap in `react-native-maps`
- * (already version-pinned by Expo) once running on a device build.
- * Live positions come from the `latest_locations` view over Supabase Realtime.
- */
+const CAMPUS_FALLBACK = { latitude: 33.948, longitude: -83.3773 };
+
 export default function MapScreen() {
-  const list = nearby.filter((n) => !n.isSelf);
+  const { demoMode, profile } = useSession();
+  const isStudent = demoMode || profile?.account_type === 'student';
+  const { permission, me, pins } = useLiveMap(true, !!isStudent);
+  const [ghost, setGhost] = useState(false);
+  const [checkinMsg, setCheckinMsg] = useState<string | null>(null);
+
+  const center = me
+    ? { latitude: me.lat, longitude: me.lng }
+    : pins.length
+      ? { latitude: pins[0].lat, longitude: pins[0].lng }
+      : CAMPUS_FALLBACK;
+
+  const others = useMemo(() => {
+    const list = pins.filter((p) => !p.is_self);
+    if (!me) return list;
+    return [...list].sort(
+      (a, b) =>
+        milesBetween(me, { lat: a.lat, lng: a.lng }) - milesBetween(me, { lat: b.lat, lng: b.lng }),
+    );
+  }, [pins, me]);
+
+  const toggleGhost = async () => {
+    const next = !ghost;
+    setGhost(next);
+    if (supabaseConfigured) {
+      await supabase.from('location_settings').upsert({ ghost_mode: next });
+    }
+  };
+
+  const checkIn = async () => {
+    if (!me) {
+      setCheckinMsg('Waiting for your location…');
+      return;
+    }
+    if (!supabaseConfigured) {
+      setCheckinMsg('Demo mode: check-in works once the backend is connected.');
+      return;
+    }
+    const { data: events } = await supabase
+      .from('events')
+      .select('id, title')
+      .eq('checkin_enabled', true)
+      .gte('starts_at', new Date(Date.now() - 6 * 3600_000).toISOString())
+      .lte('starts_at', new Date(Date.now() + 24 * 3600_000).toISOString())
+      .limit(1);
+    if (!events?.length) {
+      setCheckinMsg('No check-in events right now.');
+      return;
+    }
+    const { data, error } = await supabase.rpc('checkin_to_event', {
+      p_event: events[0].id,
+      p_lat: me.lat,
+      p_lng: me.lng,
+    });
+    if (error) return setCheckinMsg(error.message);
+    const res = data as { ok: boolean; error?: string; distance_m?: number };
+    if (res.ok) setCheckinMsg(`Checked in to ${events[0].title} ✓`);
+    else if (res.error === 'too_far')
+      setCheckinMsg(`Too far away (${Math.round(res.distance_m ?? 0)} m). Get closer and retry.`);
+    else setCheckinMsg(`Couldn't check in: ${res.error}`);
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <View style={s.header}>
-        <ScreenTitle>Map</ScreenTitle>
+      <View style={s.headerRow}>
+        <Text style={type.largeTitle}>Map</Text>
+        <Pressable onPress={toggleGhost} style={[s.ghostBtn, ghost && s.ghostBtnOn]}>
+          <Text style={[s.ghostText, ghost && { color: '#fff' }]}>
+            {ghost ? 'Ghost on' : 'Ghost off'}
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Map canvas */}
-      <View style={s.map}>
-        {nearby.map((n) => (
-          <View
-            key={n.id}
-            style={[
-              s.pin,
-              {
-                left: `${n.x * 100}%`,
-                top: `${n.y * 100}%`,
-                backgroundColor: n.isSelf ? colors.success : colors.accent,
-              },
-            ]}
-          >
-            <View style={s.pinInner} />
+      <View style={s.mapWrap}>
+        <MapView
+          style={s.map}
+          region={{ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
+          showsUserLocation
+          showsMyLocationButton
+        >
+          {others.map((p: MapPin) => (
+            <Marker
+              key={p.user_id}
+              coordinate={{ latitude: p.lat, longitude: p.lng }}
+              title={p.full_name ?? p.username ?? 'Member'}
+              description={p.place_label ?? undefined}
+              pinColor={colors.accent}
+            />
+          ))}
+        </MapView>
+        {permission === 'denied' && (
+          <View style={s.permBanner}>
+            <Text style={s.permText}>
+              Location is off — enable it in Settings to appear on the map and check in to events.
+            </Text>
           </View>
-        ))}
+        )}
       </View>
 
-      {/* Nearby sheet */}
       <View style={s.sheet}>
         <View style={s.grabber} />
-        <Text style={[type.title2, s.sheetTitle]}>Nearby</Text>
+        <View style={s.sheetHeader}>
+          <Text style={type.title2}>Nearby</Text>
+          <Pressable style={s.checkinBtn} onPress={checkIn}>
+            <Text style={s.checkinText}>Check in</Text>
+          </Pressable>
+        </View>
+        {checkinMsg && <Text style={s.checkinMsg}>{checkinMsg}</Text>}
         <FlatList
-          data={list}
-          keyExtractor={(n) => n.id}
+          data={others}
+          keyExtractor={(p) => p.user_id}
           ItemSeparatorComponent={() => <View style={s.sep} />}
-          renderItem={({ item }) => (
-            <View style={s.row}>
-              <Avatar initials={item.initials} />
-              <View style={s.rowBody}>
-                <Text style={type.headline}>{item.name}</Text>
-                <Text style={type.subhead}>{item.place}</Text>
+          renderItem={({ item }) => {
+            const dist = me ? milesBetween(me, { lat: item.lat, lng: item.lng }) : null;
+            const initials = (item.full_name ?? item.username ?? '?')
+              .split(' ')
+              .map((w) => w[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase();
+            return (
+              <View style={s.row}>
+                <Avatar initials={initials} />
+                <View style={s.rowBody}>
+                  <Text style={type.headline}>{item.full_name ?? item.username}</Text>
+                  <Text style={type.subhead}>{item.place_label ?? 'On the map'}</Text>
+                </View>
+                {dist !== null && <Text style={type.caption}>{dist.toFixed(1)} mi</Text>}
               </View>
-              <Text style={type.caption}>{item.distanceMi.toFixed(1)} mi</Text>
-            </View>
-          )}
+            );
+          }}
+          ListEmptyComponent={
+            <Text style={[type.subhead, { paddingVertical: spacing.m }]}>
+              No members sharing right now.
+            </Text>
+          }
         />
       </View>
     </SafeAreaView>
@@ -65,31 +155,42 @@ export default function MapScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  header: { paddingHorizontal: spacing.l, paddingBottom: spacing.s },
-  map: { flex: 1, backgroundColor: colors.mapTint },
-  pin: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    paddingHorizontal: spacing.l,
+    paddingBottom: spacing.s,
   },
-  pinInner: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
+  ghostBtn: {
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  ghostBtnOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  ghostText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
+  mapWrap: { flex: 1 },
+  map: { flex: 1 },
+  permBanner: {
+    position: 'absolute',
+    top: spacing.m,
+    left: spacing.l,
+    right: spacing.l,
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    padding: spacing.m,
+  },
+  permText: { fontSize: 13, color: colors.inkSecondary },
   sheet: {
     backgroundColor: colors.card,
     borderTopLeftRadius: radius.card,
     borderTopRightRadius: radius.card,
     paddingHorizontal: spacing.l,
     paddingBottom: spacing.l,
-    maxHeight: 320,
+    maxHeight: 300,
   },
   grabber: {
     alignSelf: 'center',
@@ -99,7 +200,20 @@ const s = StyleSheet.create({
     backgroundColor: colors.separator,
     marginVertical: spacing.m,
   },
-  sheetTitle: { marginBottom: spacing.m },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.s,
+  },
+  checkinBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  checkinText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  checkinMsg: { fontSize: 13, color: colors.inkSecondary, marginBottom: spacing.s },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.m },
   rowBody: { flex: 1, marginLeft: spacing.m, gap: 2 },
   sep: { height: 1, backgroundColor: colors.separator, marginLeft: 60 },
