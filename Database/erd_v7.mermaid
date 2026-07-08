@@ -1,0 +1,95 @@
+erDiagram
+    schools ||--o{ school_domains : "valid email domains"
+    schools ||--o{ school_affiliations : "verified at"
+    schools ||--o{ organizations : hosts
+    schools ||--o{ posts : "campus feed"
+    schools ||--o{ profiles : "current campus"
+    profiles ||--o{ school_affiliations : "campus history"
+    profiles ||--o{ memberships : joins
+    organizations ||--o{ memberships : has
+    organizations ||--o{ invitations : issues
+    organizations ||--o{ events : hosts
+    organizations ||--o{ chats : owns
+    organizations ||--o{ posts : "chapter feed"
+    organizations ||--o{ polls : runs
+    organizations ||--o{ payment_accounts : "rails"
+    organizations ||--o{ dues_cycles : bills
+    organizations ||--o{ charges : ledger
+    profiles ||--o{ events : creates
+    events ||--o{ event_rsvps : receives
+    events ||--o{ event_exceptions : "recurrence overrides"
+    events ||--o{ events : "series master"
+    profiles ||--o{ event_rsvps : responds
+    profiles ||--o{ calendar_feeds : "ICS export"
+    chats ||--o{ chat_members : includes
+    chats ||--o{ messages : contains
+    profiles ||--o{ chat_members : member
+    profiles ||--o{ messages : sends
+    messages ||--o{ message_reactions : gets
+    messages ||--o{ messages : "reply to"
+    profiles ||--|| location_settings : configures
+    profiles ||--o{ locations : pings
+    posts ||--o{ post_votes : scored
+    posts ||--o{ comments : discussed
+    comments ||--o{ comment_votes : scored
+    profiles ||--o{ posts : authors
+    profiles ||--o{ comments : authors
+    polls ||--o{ poll_options : offers
+    polls ||--o{ poll_votes : collects
+    poll_options ||--o{ poll_votes : chosen
+    profiles ||--o{ poll_votes : casts
+    profiles ||--o{ devices : registers
+    profiles ||--o{ notifications : receives
+    profiles ||--|| notification_prefs : configures
+    profiles ||--o{ reports : files
+    profiles ||--o{ user_blocks : blocks
+    payment_accounts ||--o{ charges : routes
+    dues_cycles ||--o{ charges : generates
+    charges ||--o{ payments : "settled by"
+    charges ||--o{ payment_plans : "split into"
+    payment_plans ||--o{ installments : schedules
+    payments ||--o| platform_fees : "our fee"
+    payments ||--o{ reconciliation_events : audited
+    payment_accounts ||--o{ payment_methods : tokenizes
+    profiles ||--o{ payment_methods : saves
+    profiles ||--o{ charges : owes
+    profiles ||--o{ payments : pays
+
+    schools { uuid id PK; text name; geography location; int radius_m }
+    school_domains { uuid id PK; uuid school_id FK; citext domain UK }
+    profiles { uuid id PK; citext username UK; date birthday; account_type account_type; bool edu_verified; bool is_suspended; uuid school_id FK }
+    school_affiliations { uuid id PK; uuid user_id FK; uuid school_id FK; citext school_email; affiliation_status status; verification_method verification_method; date reverify_by }
+    organizations { uuid id PK; text name; citext slug UK; org_type type; uuid school_id FK }
+    memberships { uuid id PK; uuid org_id FK; uuid user_id FK; membership_role role; membership_status status }
+    invitations { uuid id PK; uuid org_id FK; citext email; membership_role role; invitation_status status; text token UK }
+    events { uuid id PK; uuid org_id FK; text title; timestamptz starts_at; timestamptz ends_at; text rrule; uuid series_parent_id FK; event_visibility visibility }
+    event_exceptions { uuid id PK; uuid event_id FK; date occurs_on; bool is_cancelled; uuid override_event_id FK }
+    event_rsvps { uuid id PK; uuid event_id FK; uuid user_id FK; rsvp_status status }
+    calendar_feeds { uuid id PK; uuid user_id FK; uuid org_id FK; text token UK }
+    chats { uuid id PK; uuid org_id FK; chat_type type; text name }
+    chat_members { uuid id PK; uuid chat_id FK; uuid user_id FK; timestamptz last_read_at }
+    messages { uuid id PK; uuid chat_id FK; uuid sender_id FK; text body; uuid reply_to_id FK; timestamptz deleted_at }
+    message_reactions { uuid id PK; uuid message_id FK; uuid user_id FK; text emoji }
+    location_settings { uuid user_id PK; bool sharing_enabled; bool ghost_mode }
+    locations { uuid id PK; uuid user_id FK; geography point; timestamptz captured_at }
+    posts { uuid id PK; post_scope scope; uuid school_id FK; uuid org_id FK; uuid author_id FK; text body; int score }
+    post_votes { uuid id PK; uuid post_id FK; uuid user_id FK; smallint value }
+    comments { uuid id PK; uuid post_id FK; uuid author_id FK; text body; int score }
+    comment_votes { uuid id PK; uuid comment_id FK; uuid user_id FK; smallint value }
+    polls { uuid id PK; uuid org_id FK; text question; bool multi_select; timestamptz closes_at }
+    poll_options { uuid id PK; uuid poll_id FK; text label; int position }
+    poll_votes { uuid id PK; uuid poll_id FK; uuid option_id FK; uuid user_id FK }
+    devices { uuid id PK; uuid user_id FK; text push_token UK; device_platform platform }
+    notifications { uuid id PK; uuid user_id FK; notification_kind kind; text title; timestamptz read_at }
+    notification_prefs { uuid user_id PK; bool chat; bool events; bool dues; bool social }
+    reports { uuid id PK; uuid reporter_id FK; report_target target_type; uuid target_id; report_reason reason; report_status status }
+    user_blocks { uuid id PK; uuid blocker_id FK; uuid blocked_id FK }
+    payment_accounts { uuid id PK; uuid org_id FK; payment_rail rail; bool is_mandated; payment_account_status status }
+    dues_cycles { uuid id PK; uuid org_id FK; text name; dues_scope scope; int default_amount_cents }
+    charges { uuid id PK; uuid org_id FK; uuid user_id FK; uuid dues_cycle_id FK; uuid payment_account_id FK; charge_category category; int amount_cents; charge_status status }
+    payments { uuid id PK; uuid charge_id FK; uuid org_id FK; uuid payment_account_id FK; payment_channel channel; int gross_cents; int application_fee_cents; payment_status status }
+    payment_methods { uuid id PK; uuid user_id FK; uuid payment_account_id FK; text processor_token; text last4; bool autopay_enabled }
+    payment_plans { uuid id PK; uuid charge_id FK; plan_schedule schedule; plan_status status }
+    installments { uuid id PK; uuid plan_id FK; uuid payment_id FK; int seq_no; int amount_cents; installment_status status }
+    platform_fees { uuid id PK; uuid payment_id FK; int application_fee_cents; int net_revenue_cents; payout_status payout_status }
+    reconciliation_events { uuid id PK; uuid payment_id FK; reconciliation_source source; uuid actor_id FK }
