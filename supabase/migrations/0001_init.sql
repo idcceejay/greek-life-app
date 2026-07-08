@@ -682,4 +682,14 @@ CREATE INDEX idx_events_location_gist    ON public.events USING gist (location);
 CREATE INDEX idx_posts_point_gist        ON public.posts USING gist (point);
 CREATE INDEX idx_schools_location_gist   ON public.schools USING gist (location);
 CREATE INDEX idx_posts_school_created    ON public.posts (school_id, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_posts_org_created       ON public.posts (org_id, created_at DESC) WHERE deleted_at
+CREATE INDEX idx_posts_org_created       ON public.posts (org_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX idx_comments_post           ON public.comments (post_id);
+CREATE INDEX idx_polls_org               ON public.polls (org_id);
+CREATE INDEX idx_devices_user            ON public.devices (user_id);
+CREATE INDEX idx_notifications_unread    ON public.notifications (user_id) WHERE read_at IS NULL;
+CREATE INDEX idx_reports_open            ON public.reports (status) WHERE status = 'open';
+CREATE INDEX idx_charges_org_open        ON public.charges (org_id) WHERE status IN ('unpaid','partial');
+CREATE INDEX idx_charges_user            ON public.charges (user_id);
+CREATE INDEX idx_payments_charge         ON public.payments (charge_id);
+CREATE INDEX idx_payment_methods_user    ON public.payment_methods (user_id);
+CREATE INDEX idx_installments_plan       ON public.installments (plan_id);
