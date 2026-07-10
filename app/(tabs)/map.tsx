@@ -1,7 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker } from 'react-native-maps';
+// react-native-maps needs a native build (TestFlight/dev build) — Expo Go
+// doesn't bundle it, so load it dynamically and fall back to a styled preview.
+let MapView: any = null;
+let Marker: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Marker = maps.Marker;
+} catch {
+  // Expo Go: no native maps module — fallback view is used below.
+}
 import { Avatar } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import { useLiveMap, milesBetween, MapPin } from '../../lib/useLiveMap';
@@ -85,22 +96,50 @@ export default function MapScreen() {
       </View>
 
       <View style={s.mapWrap}>
-        <MapView
-          style={s.map}
-          region={{ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
-          showsUserLocation
-          showsMyLocationButton
-        >
-          {others.map((p: MapPin) => (
-            <Marker
-              key={p.user_id}
-              coordinate={{ latitude: p.lat, longitude: p.lng }}
-              title={p.full_name ?? p.username ?? 'Member'}
-              description={p.place_label ?? undefined}
-              pinColor={colors.accent}
-            />
-          ))}
-        </MapView>
+        {MapView ? (
+          <MapView
+            style={s.map}
+            region={{ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
+            showsUserLocation
+            showsMyLocationButton
+          >
+            {others.map((p: MapPin) => (
+              <Marker
+                key={p.user_id}
+                coordinate={{ latitude: p.lat, longitude: p.lng }}
+                title={p.full_name ?? p.username ?? 'Member'}
+                description={p.place_label ?? undefined}
+                pinColor={colors.accent}
+              />
+            ))}
+          </MapView>
+        ) : (
+          <View style={[s.map, s.fallbackMap]}>
+            {others.map((p: MapPin) => {
+              const relX = 0.5 + (p.lng - center.longitude) / 0.024;
+              const relY = 0.5 - (p.lat - center.latitude) / 0.024;
+              return (
+                <View
+                  key={p.user_id}
+                  style={[
+                    s.fallbackPin,
+                    {
+                      left: `${Math.min(92, Math.max(4, relX * 100))}%`,
+                      top: `${Math.min(88, Math.max(6, relY * 100))}%`,
+                    },
+                  ]}
+                >
+                  <View style={s.fallbackPinInner} />
+                </View>
+              );
+            })}
+            <View style={s.fallbackNote}>
+              <Text style={s.permText}>
+                Preview map (Expo Go). The full Apple Maps view arrives with the TestFlight build.
+              </Text>
+            </View>
+          </View>
+        )}
         {permission === 'denied' && (
           <View style={s.permBanner}>
             <Text style={s.permText}>
@@ -174,6 +213,29 @@ const s = StyleSheet.create({
   ghostText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
   mapWrap: { flex: 1 },
   map: { flex: 1 },
+  fallbackMap: { backgroundColor: colors.mapTint },
+  fallbackPin: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  fallbackPinInner: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
+  fallbackNote: {
+    position: 'absolute',
+    bottom: 12,
+    left: 16,
+    right: 16,
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    padding: 10,
+    opacity: 0.95,
+  },
   permBanner: {
     position: 'absolute',
     top: spacing.m,

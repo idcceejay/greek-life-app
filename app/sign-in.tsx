@@ -66,7 +66,7 @@ export default function SignInScreen() {
           <Text style={[type.subhead, s.sub]}>
             {stage === 'email'
               ? 'Use your school .edu email to unlock full access. Codes arrive by email — no passwords.'
-              : `We sent a 6-digit code to ${email.trim()}.`}
+              : `We sent a sign-in code to ${email.trim()}.`}
           </Text>
 
           {stage === 'email' ? (
@@ -87,7 +87,7 @@ export default function SignInScreen() {
               placeholder="123456"
               placeholderTextColor={colors.inkTertiary}
               keyboardType="number-pad"
-              maxLength={6}
+              maxLength={10}
               value={code}
               onChangeText={setCode}
               onSubmitEditing={verify}
