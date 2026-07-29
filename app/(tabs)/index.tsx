@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import dayjs from 'dayjs';
@@ -227,7 +238,10 @@ export default function HomeScreen() {
 
       {/* Create/join org modal */}
       <Modal visible={showOrg} animationType="slide" transparent>
-        <View style={s.modalWrap}>
+        <KeyboardAvoidingView
+          style={s.modalWrap}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={s.modal}>
             <Text style={[type.title2, { marginBottom: spacing.s }]}>Your chapter</Text>
             <Text style={type.caption}>Create a new organization</Text>
@@ -265,7 +279,7 @@ export default function HomeScreen() {
               <Text style={[s.mBtnText, { color: colors.ink }]}>Close</Text>
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

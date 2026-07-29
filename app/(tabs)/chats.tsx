@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -127,7 +129,10 @@ export default function ChatsScreen() {
       </View>
 
       <Modal visible={showNew} animationType="slide" transparent>
-        <View style={s.modalWrap}>
+        <KeyboardAvoidingView
+          style={s.modalWrap}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={s.modal}>
             <Text style={[type.title2, { marginBottom: spacing.m }]}>New group</Text>
             <TextInput
@@ -147,7 +152,7 @@ export default function ChatsScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

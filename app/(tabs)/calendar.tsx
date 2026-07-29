@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -244,7 +246,10 @@ export default function CalendarScreen() {
 
       {/* New event modal */}
       <Modal visible={showNew} animationType="slide" transparent>
-        <View style={s.modalWrap}>
+        <KeyboardAvoidingView
+          style={s.modalWrap}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={s.modal}>
             <Text style={[type.title2, { marginBottom: spacing.m }]}>New event</Text>
             <TextInput
@@ -278,7 +283,7 @@ export default function CalendarScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
