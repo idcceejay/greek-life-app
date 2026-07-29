@@ -19,7 +19,17 @@ give exact click-by-click steps for anything outside the code).
 - Expo SDK **54** (downgraded from 57 — the user's phone can only run Expo Go v54; do
   NOT upgrade), TypeScript, Expo Router. `react` pinned exactly 19.1.0, `react-native`
   0.81.5 (renderer mismatch otherwise).
+  **Verified 07/29/26: latest Expo Go on the App Store is 54.0.2 — SDK 57 needs a custom
+  dev build, so stay on 54 until we ship EAS dev builds/TestFlight.** Never run
+  `npm update` / `npm audit fix --force` (pulls an incoherent newest-of-everything set and
+  breaks the renderer). To change SDK, only ever `npx expo install <pkg> --fix`.
+  `app.json` plugins must contain ONLY real config plugins (`expo-router`, `expo-location`)
+  — adding e.g. `expo-status-bar` there throws PluginError on start.
+  Recovery from a broken install: `rmdir /s /q node_modules`, `del package-lock.json`,
+  `npm install --legacy-peer-deps`.
 - npm needs `--legacy-peer-deps` (see `start-app.bat`, which is how the user launches).
+- Windows: PowerShell may block npm (`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+  fixes it); Command Prompt works without that. `cp` -> `copy`.
 - Supabase project (id `cwleqyjhfipezodwbxnm`): Postgres + PostGIS, email OTP auth.
   `.env` holds EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY (publishable key). Never commit `.env`.
 - The user runs the app via `start-app.bat` → Expo Go on iPhone (same Wi-Fi). They do

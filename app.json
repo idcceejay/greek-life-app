@@ -23,7 +23,8 @@
     },
     "scheme": "greeklife",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-location"
     ],
     "experiments": {
       "typedRoutes": true
