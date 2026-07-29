@@ -1,16 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Sheet } from '../../components/Sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import dayjs from 'dayjs';
@@ -237,12 +227,8 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Create/join org modal */}
-      <Modal visible={showOrg} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          style={s.modalWrap}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={s.modal}>
+      <Sheet visible={showOrg} onClose={() => setShowOrg(false)}>
+        <View style={s.modal}>
             <Text style={[type.title2, { marginBottom: spacing.s }]}>Your chapter</Text>
             <Text style={type.caption}>Create a new organization</Text>
             <View style={s.joinRow}>
@@ -277,10 +263,9 @@ export default function HomeScreen() {
               onPress={() => setShowOrg(false)}
             >
               <Text style={[s.mBtnText, { color: colors.ink }]}>Close</Text>
-            </Pressable>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </Pressable>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }

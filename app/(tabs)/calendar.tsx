@@ -1,32 +1,29 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import dayjs, { Dayjs } from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import dayjs from 'dayjs';
 import { Card, ScreenTitle } from '../../components/ui';
+import { Sheet } from '../../components/Sheet';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useEvents, createEvent, deleteEvent, EventRow } from '../../lib/data';
 import { events as mockEvents } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
-dayjs.extend(customParseFormat);
-
 const MODES = ['Day', 'Week', 'Month'] as const;
 type Mode = (typeof MODES)[number];
+const REPEATS = [
+  { key: null, label: 'Once' },
+  { key: 'FREQ=YEARLY', label: 'Every year' },
+] as const;
+
+/** Round up to the next full hour — a friendly default start time. */
+function nextHour() {
+  return dayjs().add(1, 'hour').startOf('hour').toDate();
+}
 
 export default function CalendarScreen() {
-  const { demoMode, session, profile } = useSession();
+  const { demoMode, session } = useSession();
   const userId = session?.user.id;
   const { membership } = useMyOrg(userId);
   const { events: liveEvents, refresh } = useEvents(membership?.org.id);
@@ -37,11 +34,11 @@ export default function CalendarScreen() {
   const [showNew, setShowNew] = useState(false);
   const [title, setTitle] = useState('');
   const [place, setPlace] = useState('');
-  const [when, setWhen] = useState(''); // MM/DD/YYYY HH:mm
+  const [when, setWhen] = useState<Date>(nextHour());
+  const [repeat, setRepeat] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Demo mode renders the sample events; live mode renders real rows.
-  const events: EventRow[] = demoMode
+  const baseEvents: EventRow[] = demoMode
     ? mockEvents.map((e, i) => ({
         id: e.id,
         org_id: 'demo',
@@ -51,8 +48,22 @@ export default function CalendarScreen() {
         ends_at: null,
         all_day: false,
         created_by: null,
+        rrule: null,
       }))
     : liveEvents;
+
+  // Expand yearly-repeating events into this year ± 1 (birthdays, anniversaries).
+  const events = useMemo(() => {
+    const out = baseEvents.filter((e) => !e.rrule);
+    const years = [selected.year() - 1, selected.year(), selected.year() + 1];
+    for (const e of baseEvents.filter((ev) => ev.rrule?.includes('YEARLY'))) {
+      const base = dayjs(e.starts_at);
+      for (const y of years) {
+        out.push({ ...e, id: `${e.id}@${y}`, starts_at: base.year(y).toISOString() });
+      }
+    }
+    return out.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  }, [baseEvents, selected.year()]);
 
   const visible = useMemo(() => {
     if (mode === 'Day') return events.filter((e) => dayjs(e.starts_at).isSame(selected, 'day'));
@@ -69,7 +80,6 @@ export default function CalendarScreen() {
   // Weeks run Sunday → Saturday
   const weekStart = selected.startOf('week');
   const weekDays = Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day'));
-
   const gridStart = selected.startOf('month').startOf('week');
   const monthDays = Array.from({ length: 42 }, (_, i) => gridStart.add(i, 'day'));
   const eventDays = useMemo(
@@ -77,23 +87,32 @@ export default function CalendarScreen() {
     [events],
   );
 
+  const openNew = () => {
+    setTitle('');
+    setPlace('');
+    setWhen(
+      selected.isSame(dayjs(), 'day')
+        ? nextHour()
+        : selected.hour(18).minute(0).second(0).toDate(),
+    );
+    setRepeat(null);
+    setErr(null);
+    setShowNew(true);
+  };
+
   const submitNew = async () => {
     setErr(null);
     if (!membership || !userId) return;
     if (title.trim().length < 2) return setErr('Give the event a title.');
-    const dt = dayjs(when.trim(), ['MM/DD/YYYY HH:mm', 'M/D/YYYY HH:mm', 'M/D/YYYY H:mm'], true);
-    if (!dt.isValid()) return setErr('Date must be MM/DD/YYYY HH:mm (e.g. 08/15/2026 19:30)');
     const res = await createEvent(membership.org.id, userId, {
       title: title.trim(),
       location_text: place.trim(),
-      starts_at: dt.toDate(),
+      starts_at: when,
+      rrule: repeat,
     });
     if (!res.ok) return setErr(res.error);
     setShowNew(false);
-    setTitle('');
-    setPlace('');
-    setWhen('');
-    setSelected(dt);
+    setSelected(dayjs(when));
     refresh();
   };
 
@@ -101,17 +120,23 @@ export default function CalendarScreen() {
     if (demoMode) return;
     const canDelete = isAdmin || e.created_by === userId;
     if (!canDelete) return;
-    Alert.alert('Delete event', `Delete "${e.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteEvent(e.id);
-          refresh();
+    const realId = e.id.split('@')[0];
+    const isRepeating = !!e.rrule;
+    Alert.alert(
+      'Delete event',
+      isRepeating ? `Delete "${e.title}" and all its repeats?` : `Delete "${e.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteEvent(realId);
+            refresh();
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const shift = (n: number) =>
@@ -123,13 +148,12 @@ export default function CalendarScreen() {
         <View style={s.titleRow}>
           <ScreenTitle>Calendar</ScreenTitle>
           {!demoMode && membership && (
-            <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
+            <Pressable style={s.addBtn} onPress={openNew}>
               <Text style={s.addBtnText}>+ Event</Text>
             </Pressable>
           )}
         </View>
 
-        {/* Segmented control */}
         <View style={s.segment}>
           {MODES.map((m) => (
             <Pressable
@@ -142,14 +166,14 @@ export default function CalendarScreen() {
           ))}
         </View>
 
-        {/* Period header with prev/next */}
         <View style={s.periodRow}>
           <Pressable onPress={() => shift(-1)} hitSlop={10}>
             <Text style={s.chev}>‹</Text>
           </Pressable>
           <Text style={type.headline}>
             {mode === 'Day' && selected.format('dddd, MMM D')}
-            {mode === 'Week' && `${weekStart.format('MMM D')} – ${weekStart.add(6, 'day').format('MMM D')}`}
+            {mode === 'Week' &&
+              `${weekStart.format('MMM D')} – ${weekStart.add(6, 'day').format('MMM D')}`}
             {mode === 'Month' && selected.format('MMMM YYYY')}
           </Text>
           <Pressable onPress={() => shift(1)} hitSlop={10}>
@@ -157,7 +181,6 @@ export default function CalendarScreen() {
           </Pressable>
         </View>
 
-        {/* Week strip (Day + Week modes) */}
         {mode !== 'Month' && (
           <View style={s.week}>
             {weekDays.map((d) => {
@@ -176,7 +199,6 @@ export default function CalendarScreen() {
           </View>
         )}
 
-        {/* Month grid */}
         {mode === 'Month' && (
           <View style={s.monthGrid}>
             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
@@ -212,7 +234,6 @@ export default function CalendarScreen() {
           </View>
         )}
 
-        {/* Events list */}
         {visible.length === 0 && (
           <Card style={s.empty}>
             <Text style={type.headline}>
@@ -231,7 +252,10 @@ export default function CalendarScreen() {
               <View style={s.eventAccent} />
               <View style={s.eventBody}>
                 <View style={s.eventTopRow}>
-                  <Text style={type.caption}>{dayjs(e.starts_at).format('ddd · h:mm A')}</Text>
+                  <Text style={type.caption}>
+                    {dayjs(e.starts_at).format('ddd · h:mm A')}
+                    {e.rrule ? '  ·  ↻ yearly' : ''}
+                  </Text>
                   <Text style={type.caption}>{e.location_text ?? ''}</Text>
                 </View>
                 <Text style={type.headline}>{e.title}</Text>
@@ -244,47 +268,79 @@ export default function CalendarScreen() {
         )}
       </ScrollView>
 
-      {/* New event modal */}
-      <Modal visible={showNew} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          style={s.modalWrap}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={s.modal}>
-            <Text style={[type.title2, { marginBottom: spacing.m }]}>New event</Text>
-            <TextInput
-              style={s.input}
-              placeholder="Title"
-              placeholderTextColor={colors.inkTertiary}
-              value={title}
-              onChangeText={setTitle}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Location (optional)"
-              placeholderTextColor={colors.inkTertiary}
-              value={place}
-              onChangeText={setPlace}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="MM/DD/YYYY HH:mm  (e.g. 08/15/2026 19:30)"
-              placeholderTextColor={colors.inkTertiary}
+      {/* New event sheet */}
+      <Sheet visible={showNew} onClose={() => setShowNew(false)}>
+        <View style={s.modal}>
+          <Text style={[type.title2, { marginBottom: spacing.s }]}>New event</Text>
+          <TextInput
+            style={s.input}
+            placeholder="Title"
+            placeholderTextColor={colors.inkTertiary}
+            value={title}
+            onChangeText={setTitle}
+          />
+          <TextInput
+            style={s.input}
+            placeholder="Location (optional)"
+            placeholderTextColor={colors.inkTertiary}
+            value={place}
+            onChangeText={setPlace}
+          />
+
+          <View style={s.pickerRow}>
+            <Text style={s.pickerLabel}>Date</Text>
+            <DateTimePicker
               value={when}
-              onChangeText={setWhen}
+              mode="date"
+              display="compact"
+              accentColor={colors.accent}
+              onChange={(_, d) => d && setWhen(d)}
             />
-            {err && <Text style={s.err}>{err}</Text>}
-            <View style={s.modalBtns}>
-              <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
-                <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={s.mBtn} onPress={submitNew}>
-                <Text style={s.mBtnText}>Create</Text>
-              </Pressable>
+          </View>
+          <View style={s.pickerRow}>
+            <Text style={s.pickerLabel}>Time</Text>
+            <DateTimePicker
+              value={when}
+              mode="time"
+              display="compact"
+              accentColor={colors.accent}
+              onChange={(_, d) => d && setWhen(d)}
+            />
+          </View>
+
+          <View style={s.pickerRow}>
+            <Text style={s.pickerLabel}>Repeat</Text>
+            <View style={s.repeatChips}>
+              {REPEATS.map((r) => (
+                <Pressable
+                  key={r.label}
+                  onPress={() => setRepeat(r.key)}
+                  style={[s.repeatChip, repeat === r.key && s.repeatChipOn]}
+                >
+                  <Text style={[s.repeatChipText, repeat === r.key && { color: '#fff' }]}>
+                    {r.label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          {repeat && (
+            <Text style={type.caption}>
+              Repeats every {dayjs(when).format('MMMM D')} — great for birthdays.
+            </Text>
+          )}
+
+          {err && <Text style={s.err}>{err}</Text>}
+          <View style={s.modalBtns}>
+            <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
+              <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
+            </Pressable>
+            <Pressable style={s.mBtn} onPress={submitNew}>
+              <Text style={s.mBtnText}>Create</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -341,7 +397,6 @@ const s = StyleSheet.create({
   eventBody: { flex: 1, padding: spacing.l, gap: 4 },
   eventTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
   hintText: { ...type.caption, textAlign: 'center', marginTop: spacing.s },
-  modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modal: {
     backgroundColor: colors.canvas,
     borderTopLeftRadius: radius.card,
@@ -358,6 +413,26 @@ const s = StyleSheet.create({
     fontSize: 16,
     color: colors.ink,
   },
+  pickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: 8,
+    minHeight: 48,
+  },
+  pickerLabel: { fontSize: 16, color: colors.ink, fontWeight: '500' },
+  repeatChips: { flexDirection: 'row', gap: spacing.s },
+  repeatChip: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: colors.canvas,
+  },
+  repeatChipOn: { backgroundColor: colors.accent },
+  repeatChipText: { fontSize: 14, fontWeight: '600', color: colors.ink },
   err: { color: colors.danger, fontSize: 14 },
   modalBtns: { flexDirection: 'row', gap: spacing.m, marginTop: spacing.s },
   mBtn: {

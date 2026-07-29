@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Sheet } from '../../components/Sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -125,12 +116,8 @@ export default function FeedScreen() {
         />
       </View>
 
-      <Modal visible={showNew} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          style={s.modalWrap}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={s.modal}>
+      <Sheet visible={showNew} onClose={() => setShowNew(false)}>
+        <View style={s.modal}>
             <Text style={[type.title2, { marginBottom: spacing.m }]}>New post</Text>
             <Text style={type.caption}>Posts are anonymous to other students.</Text>
             <TextInput
@@ -149,10 +136,9 @@ export default function FeedScreen() {
               <Pressable style={s.mBtn} onPress={submitNew}>
                 <Text style={s.mBtnText}>Post</Text>
               </Pressable>
-            </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }

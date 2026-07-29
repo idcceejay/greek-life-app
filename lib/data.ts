@@ -27,6 +27,7 @@ export type EventRow = {
   ends_at: string | null;
   all_day: boolean;
   created_by: string | null;
+  rrule: string | null; // e.g. 'FREQ=YEARLY' for birthdays/anniversaries
 };
 
 export type ChatRow = {
@@ -126,7 +127,7 @@ export function useEvents(orgId: string | undefined) {
     }
     const { data } = await supabase
       .from('events')
-      .select('id, org_id, title, location_text, starts_at, ends_at, all_day, created_by')
+      .select('id, org_id, title, location_text, starts_at, ends_at, all_day, created_by, rrule')
       .eq('org_id', orgId)
       .order('starts_at');
     setEvents((data as EventRow[]) ?? []);
@@ -143,7 +144,7 @@ export function useEvents(orgId: string | undefined) {
 export async function createEvent(
   orgId: string,
   userId: string,
-  fields: { title: string; location_text: string; starts_at: Date },
+  fields: { title: string; location_text: string; starts_at: Date; rrule?: string | null },
 ) {
   const { error } = await supabase.from('events').insert({
     org_id: orgId,
@@ -151,6 +152,7 @@ export async function createEvent(
     title: fields.title,
     location_text: fields.location_text || null,
     starts_at: fields.starts_at.toISOString(),
+    rrule: fields.rrule ?? null,
   });
   return error ? { ok: false as const, error: error.message } : { ok: true as const };
 }
