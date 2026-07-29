@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,29 +11,69 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import dayjs from 'dayjs';
 import { Avatar } from '../../components/ui';
-import { chats, messagesByChat } from '../../lib/mock';
+import { useSession } from '../../lib/useSession';
+import { useMessages, MessageRow } from '../../lib/data';
+import { supabase, supabaseConfigured } from '../../lib/supabase';
+import { chats as mockChats, messagesByChat } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
-/**
- * Chat thread. Demo state now; wire to `messages` + Supabase Realtime
- * (`postgres_changes` on chat_id) when the backend is connected.
- */
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const chat = chats.find((c) => c.id === id);
-  const [messages, setMessages] = useState(messagesByChat[id ?? ''] ?? []);
+  const { demoMode, session } = useSession();
+  const userId = session?.user.id;
+  const listRef = useRef<FlatList>(null);
+
+  const [chatName, setChatName] = useState<string>('Chat');
+  const { messages: liveMessages, send } = useMessages(demoMode ? undefined : id, userId);
+  const [demoMessages, setDemoMessages] = useState(
+    demoMode ? (messagesByChat[id ?? ''] ?? []) : [],
+  );
   const [draft, setDraft] = useState('');
 
-  const send = () => {
+  useEffect(() => {
+    if (demoMode) {
+      setChatName(mockChats.find((c) => c.id === id)?.name ?? 'Chat');
+      return;
+    }
+    if (!supabaseConfigured || !id) return;
+    supabase
+      .from('chats')
+      .select('name, type')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const row = data as { name: string | null; type: string } | null;
+        setChatName(row?.name ?? (row?.type === 'dm' ? 'Direct message' : 'Chat'));
+      });
+  }, [id, demoMode]);
+
+  const messages: (MessageRow & { mine: boolean })[] = demoMode
+    ? demoMessages.map((m) => ({
+        id: m.id,
+        chat_id: id ?? '',
+        sender_id: m.mine ? 'me' : 'them',
+        body: m.body,
+        created_at: new Date().toISOString(),
+        sender_name: m.from,
+        mine: m.mine,
+      }))
+    : liveMessages.map((m) => ({ ...m, mine: m.sender_id === userId }));
+
+  const submit = async () => {
     const body = draft.trim();
     if (!body) return;
-    setMessages((m) => [
-      ...m,
-      { id: String(Date.now()), from: 'You', mine: true, body, at: 'now' },
-    ]);
     setDraft('');
+    if (demoMode) {
+      setDemoMessages((m) => [
+        ...m,
+        { id: String(Date.now()), from: 'You', mine: true, body, at: 'now' },
+      ]);
+      return;
+    }
+    await send(body);
   };
 
   return (
@@ -43,26 +83,40 @@ export default function ChatScreen() {
           <Text style={s.back}>‹ Back</Text>
         </Pressable>
         <View style={s.headerCenter}>
-          <Avatar initials={chat?.initials ?? '?'} size={32} />
-          <Text style={type.headline}>{chat?.name ?? 'Chat'}</Text>
+          <Avatar
+            initials={chatName
+              .split(' ')
+              .map((w) => w[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase()}
+            size={32}
+          />
+          <Text style={type.headline}>{chatName}</Text>
         </View>
         <View style={s.headerSpacer} />
       </View>
 
-      <KeyboardAvoidingView
-        style={s.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
+          ref={listRef}
           data={messages}
           keyExtractor={(m) => m.id}
           contentContainerStyle={s.list}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <Text style={[type.subhead, { textAlign: 'center', marginTop: spacing.xl }]}>
+              No messages yet — say hi 👋
+            </Text>
+          }
           renderItem={({ item }) => (
             <View style={[s.bubbleRow, item.mine && s.bubbleRowMine]}>
               <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubbleTheirs]}>
-                {!item.mine && <Text style={s.sender}>{item.from}</Text>}
+                {!item.mine && item.sender_name && <Text style={s.sender}>{item.sender_name}</Text>}
                 <Text style={[type.body, item.mine && { color: '#fff' }]}>{item.body}</Text>
-                <Text style={[s.time, item.mine && { color: '#D9D9FB' }]}>{item.at}</Text>
+                <Text style={[s.time, item.mine && { color: '#D9D9FB' }]}>
+                  {demoMode ? 'now' : dayjs(item.created_at).format('h:mm A')}
+                </Text>
               </View>
             </View>
           )}
@@ -74,10 +128,10 @@ export default function ChatScreen() {
             placeholderTextColor={colors.inkTertiary}
             value={draft}
             onChangeText={setDraft}
-            onSubmitEditing={send}
+            onSubmitEditing={submit}
             returnKeyType="send"
           />
-          <Pressable style={s.sendBtn} onPress={send}>
+          <Pressable style={s.sendBtn} onPress={submit}>
             <Text style={s.sendText}>↑</Text>
           </Pressable>
         </View>
@@ -99,9 +153,15 @@ const s = StyleSheet.create({
     borderBottomColor: colors.separator,
   },
   back: { color: colors.accent, fontSize: 17, fontWeight: '600', width: 64 },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.s },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.s,
+  },
   headerSpacer: { width: 64 },
-  list: { padding: spacing.l, gap: spacing.s },
+  list: { padding: spacing.l, gap: spacing.s, flexGrow: 1 },
   bubbleRow: { flexDirection: 'row' },
   bubbleRowMine: { justifyContent: 'flex-end' },
   bubble: {

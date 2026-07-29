@@ -1,21 +1,91 @@
-import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Avatar, ScreenTitle } from '../../components/ui';
-import { chats } from '../../lib/mock';
+import { useFocusEffect, useRouter } from 'expo-router';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { Avatar, Card, ScreenTitle } from '../../components/ui';
+import { useSession } from '../../lib/useSession';
+import { useMyOrg, useChats, createGroupChat } from '../../lib/data';
+import { chats as mockChats } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
-/** Chats — list per the UI Layout PDF (page 2). */
+dayjs.extend(relativeTime);
+
+function initialsOf(name: string | null) {
+  if (!name) return 'DM';
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export default function ChatsScreen() {
   const router = useRouter();
+  const { demoMode, session } = useSession();
+  const userId = session?.user.id;
+  const { membership } = useMyOrg(userId);
+  const { chats, loading, refresh } = useChats(userId);
   const [query, setQuery] = useState('');
-  const data = chats.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
+  const [showNew, setShowNew] = useState(false);
+  const [name, setName] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
+
+  const data = demoMode
+    ? mockChats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: 'group' as const,
+        lastMessage: c.lastMessage,
+        lastAt: null as string | null,
+        _demoAt: c.lastAt,
+        _unread: c.unread,
+      }))
+    : chats.map((c) => ({ ...c, _demoAt: '', _unread: 0 }));
+
+  const filtered = data.filter((c) =>
+    (c.name ?? '').toLowerCase().includes(query.toLowerCase()),
+  );
+
+  const submitNew = async () => {
+    setErr(null);
+    if (!userId) return;
+    if (name.trim().length < 2) return setErr('Give the group a name.');
+    const res = await createGroupChat(name.trim(), membership?.org.id ?? null, userId);
+    if (!res.ok) return setErr(res.error);
+    setShowNew(false);
+    setName('');
+    refresh();
+    router.push(`/chat/${res.chatId}`);
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.container}>
-        <ScreenTitle>Chats</ScreenTitle>
+        <View style={s.titleRow}>
+          <ScreenTitle>Chats</ScreenTitle>
+          {!demoMode && (
+            <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
+              <Text style={s.addBtnText}>+ Group</Text>
+            </Pressable>
+          )}
+        </View>
         <TextInput
           style={s.search}
           placeholder="Search"
@@ -23,27 +93,62 @@ export default function ChatsScreen() {
           value={query}
           onChangeText={setQuery}
         />
+        {!demoMode && !loading && filtered.length === 0 && (
+          <Card style={s.empty}>
+            <Text style={type.headline}>No chats yet</Text>
+            <Text style={type.subhead}>
+              Tap “+ Group” to start one. Chapter groups are created automatically when you create
+              or join an organization.
+            </Text>
+          </Card>
+        )}
         <FlatList
-          data={data}
+          data={filtered}
           keyExtractor={(c) => c.id}
           ItemSeparatorComponent={() => <View style={s.sep} />}
           renderItem={({ item }) => (
             <Pressable style={s.row} onPress={() => router.push(`/chat/${item.id}`)}>
-              <Avatar initials={item.initials} />
+              <Avatar initials={initialsOf(item.name)} />
               <View style={s.rowBody}>
-                <Text style={type.headline}>{item.name}</Text>
+                <Text style={type.headline}>{item.name ?? 'Direct message'}</Text>
                 <Text style={type.subhead} numberOfLines={1}>
-                  {item.lastMessage}
+                  {item.lastMessage ?? 'No messages yet'}
                 </Text>
               </View>
               <View style={s.rowMeta}>
-                <Text style={type.caption}>{item.lastAt}</Text>
-                {item.unread > 0 && <View style={s.unreadDot} />}
+                <Text style={type.caption}>
+                  {demoMode ? item._demoAt : item.lastAt ? dayjs(item.lastAt).fromNow() : ''}
+                </Text>
+                {item._unread > 0 && <View style={s.unreadDot} />}
               </View>
             </Pressable>
           )}
         />
       </View>
+
+      <Modal visible={showNew} animationType="slide" transparent>
+        <View style={s.modalWrap}>
+          <View style={s.modal}>
+            <Text style={[type.title2, { marginBottom: spacing.m }]}>New group</Text>
+            <TextInput
+              style={s.input}
+              placeholder="Group name (e.g. Rush Committee)"
+              placeholderTextColor={colors.inkTertiary}
+              value={name}
+              onChangeText={setName}
+            />
+            {err && <Text style={s.err}>{err}</Text>}
+            <View style={s.modalBtns}>
+              <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
+                <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
+              </Pressable>
+              <Pressable style={s.mBtn} onPress={submitNew}>
+                <Text style={s.mBtnText}>Create</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -51,6 +156,15 @@ export default function ChatsScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   container: { flex: 1, padding: spacing.l },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  addBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   search: {
     backgroundColor: '#E4E3E9',
     borderRadius: radius.control,
@@ -60,9 +174,38 @@ const s = StyleSheet.create({
     marginBottom: spacing.l,
     color: colors.ink,
   },
+  empty: { gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.m },
   rowBody: { flex: 1, marginLeft: spacing.m, gap: 2 },
   rowMeta: { alignItems: 'flex-end', gap: 6 },
   unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
   sep: { height: 1, backgroundColor: colors.separator, marginLeft: 60 },
+  modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modal: {
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.m,
+  },
+  input: {
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: 13,
+    fontSize: 16,
+    color: colors.ink,
+  },
+  err: { color: colors.danger, fontSize: 14 },
+  modalBtns: { flexDirection: 'row', gap: spacing.m, marginTop: spacing.s },
+  mBtn: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    borderRadius: radius.control,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  mBtnGhost: { backgroundColor: colors.card },
+  mBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
