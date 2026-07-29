@@ -55,7 +55,7 @@ export default function CalendarScreen() {
   const visible = useMemo(() => {
     if (mode === 'Day') return events.filter((e) => dayjs(e.starts_at).isSame(selected, 'day'));
     if (mode === 'Week') {
-      const start = selected.startOf('week').add(1, 'day');
+      const start = selected.startOf('week'); // Sunday
       const end = start.add(7, 'day');
       return events.filter(
         (e) => dayjs(e.starts_at).isAfter(start.subtract(1, 'ms')) && dayjs(e.starts_at).isBefore(end),
@@ -64,13 +64,11 @@ export default function CalendarScreen() {
     return events.filter((e) => dayjs(e.starts_at).isSame(selected, 'month'));
   }, [events, mode, selected]);
 
-  const weekStart = selected.startOf('week').add(1, 'day');
+  // Weeks run Sunday → Saturday
+  const weekStart = selected.startOf('week');
   const weekDays = Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day'));
 
-  const monthStart = selected.startOf('month');
-  const gridStart = monthStart.startOf('week').add(1, 'day').isAfter(monthStart)
-    ? monthStart.startOf('week').add(1, 'day').subtract(7, 'day')
-    : monthStart.startOf('week').add(1, 'day');
+  const gridStart = selected.startOf('month').startOf('week');
   const monthDays = Array.from({ length: 42 }, (_, i) => gridStart.add(i, 'day'));
   const eventDays = useMemo(
     () => new Set(events.map((e) => dayjs(e.starts_at).format('YYYY-MM-DD'))),
@@ -165,7 +163,7 @@ export default function CalendarScreen() {
               const hasEvent = eventDays.has(d.format('YYYY-MM-DD'));
               return (
                 <Pressable key={d.format('YYYY-MM-DD')} style={s.day} onPress={() => setSelected(d)}>
-                  <Text style={type.caption}>{d.format('dd').charAt(0)}</Text>
+                  <Text style={type.caption}>{d.format('dd')}</Text>
                   <View style={[s.dayNum, isSelected && s.dayNumActive]}>
                     <Text style={[s.dayNumText, isSelected && s.dayNumTextActive]}>{d.date()}</Text>
                   </View>
@@ -179,7 +177,7 @@ export default function CalendarScreen() {
         {/* Month grid */}
         {mode === 'Month' && (
           <View style={s.monthGrid}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
               <Text key={i} style={[s.monthCell, type.caption, { textAlign: 'center' }]}>
                 {d}
               </Text>
