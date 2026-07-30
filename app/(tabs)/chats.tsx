@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { Avatar, Card, ScreenTitle } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
-import { useMyOrg, useChats, createGroupChat } from '../../lib/data';
+import { useMyOrg, useChats, createGroupChat, joinChatWithCode } from '../../lib/data';
 import { chats as mockChats } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
@@ -33,6 +33,9 @@ export default function ChatsScreen() {
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [showJoin, setShowJoin] = useState(false);
+  const [code, setCode] = useState('');
+  const [joinErr, setJoinErr] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,10 +63,24 @@ export default function ChatsScreen() {
     setErr(null);
     if (!userId) return;
     if (name.trim().length < 2) return setErr('Give the group a name.');
-    const res = await createGroupChat(name.trim(), membership?.org.id ?? null, userId);
+    const res = await createGroupChat(name.trim(), membership?.org.id ?? null);
     if (!res.ok) return setErr(res.error);
     setShowNew(false);
     setName('');
+    refresh();
+    router.push(`/chat/${res.chatId}`);
+  };
+
+  const submitJoin = async () => {
+    setJoinErr(null);
+    if (code.trim().length < 4) return setJoinErr('Paste the invite code.');
+    const res = await joinChatWithCode(code);
+    if (!res.ok)
+      return setJoinErr(
+        res.error === 'invalid_or_expired' ? 'That code is invalid or expired.' : res.error,
+      );
+    setShowJoin(false);
+    setCode('');
     refresh();
     router.push(`/chat/${res.chatId}`);
   };
@@ -74,9 +91,14 @@ export default function ChatsScreen() {
         <View style={s.titleRow}>
           <ScreenTitle>Chats</ScreenTitle>
           {!demoMode && (
-            <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
-              <Text style={s.addBtnText}>+ Group</Text>
-            </Pressable>
+            <View style={s.headerBtns}>
+              <Pressable style={s.joinBtn} onPress={() => setShowJoin(true)}>
+                <Text style={s.joinBtnText}>Join code</Text>
+              </Pressable>
+              <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
+                <Text style={s.addBtnText}>+ Group</Text>
+              </Pressable>
+            </View>
           )}
         </View>
         <TextInput
@@ -140,6 +162,30 @@ export default function ChatsScreen() {
           </View>
         </View>
       </Sheet>
+
+      <Sheet visible={showJoin} onClose={() => setShowJoin(false)}>
+        <View style={s.modal}>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Join a group</Text>
+          <Text style={type.caption}>Paste the invite code someone shared with you.</Text>
+          <TextInput
+            style={s.input}
+            placeholder="Invite code"
+            placeholderTextColor={colors.inkTertiary}
+            autoCapitalize="none"
+            value={code}
+            onChangeText={setCode}
+          />
+          {joinErr && <Text style={s.err}>{joinErr}</Text>}
+          <View style={s.modalBtns}>
+            <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowJoin(false)}>
+              <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
+            </Pressable>
+            <Pressable style={s.mBtn} onPress={submitJoin}>
+              <Text style={s.mBtnText}>Join</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -153,9 +199,18 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginTop: 6,
   },
   addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  headerBtns: { flexDirection: 'row', gap: spacing.s, alignItems: 'center', marginTop: 6 },
+  joinBtn: {
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  joinBtnText: { color: colors.accent, fontWeight: '600', fontSize: 14 },
   search: {
     backgroundColor: '#E4E3E9',
     borderRadius: radius.control,

@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 
 /**
- * Fast, fluid bottom sheet: 220 ms ease-out in, 170 ms out (the built-in
- * Modal slide is much slower and not adjustable). Tap the backdrop to close.
- * Keyboard-aware out of the box.
+ * Fast, fluid bottom sheet: a snappy spring in (~180 ms settle), 110 ms fade
+ * out. The built-in Modal slide is much slower and not adjustable.
+ * Tap the backdrop to close. Keyboard-aware out of the box.
  */
 export function Sheet({
   visible,
@@ -29,17 +29,19 @@ export function Sheet({
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      Animated.timing(progress, {
+      Animated.spring(progress, {
         toValue: 1,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
+        stiffness: 260,
+        damping: 26,
+        mass: 0.7,
+        overshootClamping: true,
         useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(progress, {
         toValue: 0,
-        duration: 170,
-        easing: Easing.in(Easing.cubic),
+        duration: 110,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }).start(() => setMounted(false));
     }
@@ -62,7 +64,7 @@ export function Sheet({
               {
                 translateY: progress.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [420, 0],
+                  outputRange: [340, 0],
                 }),
               },
             ],

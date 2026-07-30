@@ -181,7 +181,28 @@ export default function CalendarScreen() {
           </Pressable>
         </View>
 
-        {mode !== 'Month' && (
+        {/* Day mode: a single-day agenda, no week strip */}
+        {mode === 'Day' && (
+          <View style={s.dayHeader}>
+            <Text style={s.dayHeaderNum}>{selected.format('D')}</Text>
+            <View>
+              <Text style={type.headline}>{selected.format('dddd')}</Text>
+              <Text style={type.subhead}>{selected.format('MMMM YYYY')}</Text>
+              <Text style={type.caption}>
+                {visible.length === 0
+                  ? 'No events'
+                  : `${visible.length} event${visible.length === 1 ? '' : 's'}`}
+              </Text>
+            </View>
+            {!selected.isSame(dayjs(), 'day') && (
+              <Pressable style={s.todayBtn} onPress={() => setSelected(dayjs())}>
+                <Text style={s.todayBtnText}>Today</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {mode === 'Week' && (
           <View style={s.week}>
             {weekDays.map((d) => {
               const isSelected = d.isSame(selected, 'day');
@@ -250,13 +271,21 @@ export default function CalendarScreen() {
           <Pressable key={e.id} onLongPress={() => confirmDelete(e)} delayLongPress={400}>
             <Card style={s.eventCard}>
               <View style={s.eventAccent} />
+              {mode === 'Day' && (
+                <View style={s.timeCol}>
+                  <Text style={s.timeBig}>{dayjs(e.starts_at).format('h:mm')}</Text>
+                  <Text style={type.caption}>{dayjs(e.starts_at).format('A')}</Text>
+                </View>
+              )}
               <View style={s.eventBody}>
                 <View style={s.eventTopRow}>
                   <Text style={type.caption}>
-                    {dayjs(e.starts_at).format('ddd · h:mm A')}
+                    {mode === 'Day'
+                      ? (e.location_text ?? 'No location')
+                      : dayjs(e.starts_at).format('ddd · h:mm A')}
                     {e.rrule ? '  ·  ↻ yearly' : ''}
                   </Text>
-                  <Text style={type.caption}>{e.location_text ?? ''}</Text>
+                  {mode !== 'Day' && <Text style={type.caption}>{e.location_text ?? ''}</Text>}
                 </View>
                 <Text style={type.headline}>{e.title}</Text>
               </View>
@@ -391,6 +420,32 @@ const s = StyleSheet.create({
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.l },
   monthCell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 4 },
   monthDay: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  dayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.l,
+    marginBottom: spacing.l,
+    paddingHorizontal: spacing.s,
+  },
+  dayHeaderNum: { fontSize: 52, fontWeight: '700', color: colors.accent, lineHeight: 56 },
+  todayBtn: {
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  todayBtnText: { color: colors.accent, fontWeight: '600', fontSize: 14 },
+  timeCol: {
+    paddingLeft: spacing.l,
+    paddingVertical: spacing.l,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 74,
+  },
+  timeBig: { fontSize: 20, fontWeight: '700', color: colors.ink },
   empty: { gap: 4, marginBottom: spacing.m },
   eventCard: { flexDirection: 'row', padding: 0, overflow: 'hidden', marginBottom: spacing.m },
   eventAccent: { width: 4, backgroundColor: colors.accent },

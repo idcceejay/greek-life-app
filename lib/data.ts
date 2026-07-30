@@ -210,19 +210,56 @@ export function useChats(userId: string | undefined) {
   return { chats, loading, refresh };
 }
 
-export async function createGroupChat(name: string, orgId: string | null, userId: string) {
-  const { data, error } = await supabase
-    .from('chats')
-    .insert({ name, org_id: orgId, type: 'group', created_by: userId })
-    .select('id')
-    .single();
+/** Atomic (RPC): creates the chat and makes the caller its admin member. */
+export async function createGroupChat(name: string, orgId: string | null) {
+  const { data, error } = await supabase.rpc('create_group_chat', {
+    p_name: name,
+    p_org: orgId,
+  });
   if (error) return { ok: false as const, error: error.message };
-  const chatId = (data as { id: string }).id;
-  const { error: e2 } = await supabase
-    .from('chat_members')
-    .insert({ chat_id: chatId, user_id: userId, role: 'admin' });
-  if (e2) return { ok: false as const, error: e2.message };
-  return { ok: true as const, chatId };
+  const res = data as { ok: boolean; error?: string; chat_id?: string };
+  return res.ok
+    ? { ok: true as const, chatId: res.chat_id! }
+    : { ok: false as const, error: res.error ?? 'unknown' };
+}
+
+/** Shareable invite code for a chat (admins only). Reuses an active code. */
+export async function createChatInvite(chatId: string) {
+  const { data, error } = await supabase.rpc('create_chat_invite', { p_chat: chatId });
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string; token?: string };
+  return res.ok
+    ? { ok: true as const, token: res.token! }
+    : { ok: false as const, error: res.error ?? 'unknown' };
+}
+
+export async function joinChatWithCode(token: string) {
+  const { data, error } = await supabase.rpc('join_chat_via_invite', {
+    p_token: token.trim(),
+  });
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string; chat_id?: string };
+  return res.ok
+    ? { ok: true as const, chatId: res.chat_id! }
+    : { ok: false as const, error: res.error ?? 'unknown' };
+}
+
+export type UserHit = { id: string; username: string | null; full_name: string | null };
+
+export async function searchUsers(query: string): Promise<UserHit[]> {
+  if (query.trim().length < 2) return [];
+  const { data } = await supabase.rpc('search_users', { p_query: query });
+  return (data as UserHit[]) ?? [];
+}
+
+export async function addChatMember(chatId: string, username: string) {
+  const { data, error } = await supabase.rpc('add_chat_member_by_username', {
+    p_chat: chatId,
+    p_username: username,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string };
+  return res.ok ? { ok: true as const } : { ok: false as const, error: res.error ?? 'unknown' };
 }
 
 export function useMessages(chatId: string | undefined, userId: string | undefined) {
