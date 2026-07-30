@@ -50,37 +50,56 @@ give exact click-by-click steps for anything outside the code).
 
 ## App state
 
-- All 5 tabs work with demo data (`lib/mock.ts`) when `.env` is absent ("demo mode").
-- Auth: `app/sign-in.tsx` (email OTP 6-digit), `app/onboarding.tsx` (ensure_profile RPC),
-  gate in `app/(tabs)/_layout.tsx` via `lib/useSession.ts`.
-- Map: `app/(tabs)/map.tsx` + `lib/useLiveMap.ts` — react-native-maps, foreground-only
-  location publishing (60 s throttle), pins via `get_visible_locations` RPC, ghost mode,
-  location-verified event check-in. **No background tracking, no speed features — owner
-  explicitly rejected Life360-style speed tracking.**
-- Chats/Calendar/Feed/Home still render mock data — wiring them to Supabase is next.
+Working end-to-end against the live Supabase project (July 29, 2026):
+- Auth: email OTP (`app/sign-in.tsx`, 8-digit codes), onboarding (`ensure_profile`),
+  gate in `app/(tabs)/_layout.tsx` via `lib/useSession.ts`. Sign out = tap Home avatar.
+  Supabase email templates (Confirm signup + Magic Link) customized to send `{{ .Token }}`
+  via Gmail SMTP.
+- `lib/data.ts` is the single live-data layer (orgs, events, chats, messages, posts,
+  invites, user search). Screens must render empty states; `lib/mock.ts` demo data renders
+  ONLY when `.env` is absent (design-preview mode).
+- Home: org create/join flow (`create_organization` RPC), live next-event/chat/feed cards.
+- Calendar: Day (agenda) / Week (Sun–Sat strip) / Month (grid) all functional, prev/next,
+  event dots, create via native date+time pickers, `FREQ=YEARLY` repeat expanded
+  client-side ±1 year, hold-to-delete.
+- Chats: real list, atomic `create_group_chat` RPC, realtime messages, invite codes
+  (`create_chat_invite` + `join_chat_via_invite`), add-by-username (`search_users` +
+  `add_chat_member_by_username`).
+- Feed: real anonymous posts + voting (students only).
+- Map: react-native-maps loaded dynamically (Expo Go lacks the native module → styled
+  fallback), foreground-only pings, ghost mode, location-verified check-in.
+  **No background tracking / speed features — owner explicitly rejected those.**
+- `components/Sheet.tsx`: shared spring bottom sheet (keyboard-aware). Use it for all
+  modal forms — do not go back to RN `Modal animationType="slide"` (too slow).
 
-## KNOWN BLOCKER (auth emails)
+Migrations 0001–0006 are ALL APPLIED to the hosted project. Anything RLS blocks from the
+client in two steps should become a SECURITY DEFINER RPC (see 0005/0006 for the pattern).
 
-Supabase now requires **custom SMTP** to edit email templates; default template sends a
-magic **link** but the app's sign-in expects a **6-digit code** (`{{ .Token }}`).
-Options: set up free SMTP (e.g. Resend) and add `{{ .Token }}` to the Magic Link
-template, or rework sign-in to handle magic-link deep links. Until resolved, real
-sign-in cannot complete. This is the first thing to fix.
+Test data: `supabase/dev_seed_test_school.sql` exists but the consumer email domains were
+REMOVED again (real .edu required for new signups). Existing accounts
+(ceejayraut@gmail.com, cparrish03888@gmail.com) were force-set to student tier.
+
+## RESOLVED blockers (do not redo)
+
+Auth emails: Gmail SMTP is configured and both templates send `{{ .Token }}`. Sign-in works.
+Codes are 8 digits, not 6 — don't cap the input at 6.
 
 ## Next tasks (in priority order)
 
-1. Fix auth email delivery (above), seed the user's real school + email domains.
-2. Wire Chats to Supabase Realtime (`chats`/`messages`/`chat_unread_counts`), Calendar to
-   `events`/RSVPs, Feed to `posts`/votes, Home to live counts.
-3. Chat growth UI: invite links (`chat_invites` schema is live) + user search (username
-   citext, RLS limits to same campus/org).
-4. Calendar sync: `expo-calendar` device integration (Apple/Google on phone). ICS export
-   feed (`calendar_feeds` table) needs an Edge Function. Google OAuth 2-way sync and
-   "Flare" integration = post-launch (Flare has no public API).
+1. Seed the user's real school + `.edu` domains (Kennesaw State — confirm) so new members
+   can sign up as students.
+2. Member management: approve/decline pending join requests, promote to admin/treasurer,
+   roster screen. Nothing in the UI does this yet.
+3. RSVP buttons on events; event edit (create/delete exist).
+4. Calendar sync: `expo-calendar` device integration (Apple/Google accounts on the phone).
+   ICS export (`calendar_feeds`) needs an Edge Function. Google OAuth two-way sync and
+   "Flare" = post-launch (Flare has no public API).
 5. Stickers UI (schema live: `sticker_packs`/`stickers`, `messages.sticker_id`; needs a
    `stickers` storage bucket).
-6. TestFlight via EAS Build (Apple Developer enrollment status: user was told to start —
-   ask). Moderation UI (report/block) exists in schema, needed for App Review.
+6. Push notifications (`devices`/`notifications` tables + Edge Function fan-out).
+7. Moderation UI (report/block) — schema exists, REQUIRED for App Review with an anonymous
+   feed. Then EAS Build → TestFlight (Apple Developer enrollment: ask; it's the long pole
+   for the 08/31 launch).
 
 ## Conventions
 
