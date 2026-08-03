@@ -16,14 +16,19 @@ try {
 import { Avatar } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import { useLiveMap, milesBetween, MapPin } from '../../lib/useLiveMap';
-import { supabase, supabaseConfigured } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
 const CAMPUS_FALLBACK = { latitude: 33.948, longitude: -83.3773 };
 
+/**
+ * Live member map (Snap-map style): real map, chapter members' latest pins,
+ * ghost mode, and location-verified event check-in. Foreground presence only —
+ * no background tracking, no driving/speed features.
+ */
 export default function MapScreen() {
-  const { demoMode, profile } = useSession();
-  const isStudent = demoMode || profile?.account_type === 'student';
+  const { profile } = useSession();
+  const isStudent = profile?.account_type === 'student';
   const { permission, me, pins } = useLiveMap(true, !!isStudent);
   const [ghost, setGhost] = useState(false);
   const [checkinMsg, setCheckinMsg] = useState<string | null>(null);
@@ -46,9 +51,7 @@ export default function MapScreen() {
   const toggleGhost = async () => {
     const next = !ghost;
     setGhost(next);
-    if (supabaseConfigured) {
-      await supabase.from('location_settings').upsert({ ghost_mode: next });
-    }
+    await supabase.from('location_settings').upsert({ ghost_mode: next });
   };
 
   const checkIn = async () => {
@@ -56,10 +59,7 @@ export default function MapScreen() {
       setCheckinMsg('Waiting for your location…');
       return;
     }
-    if (!supabaseConfigured) {
-      setCheckinMsg('Demo mode: check-in works once the backend is connected.');
-      return;
-    }
+    // Find today's check-in-enabled event for my orgs (first match)
     const { data: events } = await supabase
       .from('events')
       .select('id, title')

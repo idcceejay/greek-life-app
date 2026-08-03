@@ -7,7 +7,6 @@ import { Card, ScreenTitle } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useEvents, createEvent, deleteEvent, EventRow } from '../../lib/data';
-import { events as mockEvents } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
 const MODES = ['Day', 'Week', 'Month'] as const;
@@ -23,7 +22,7 @@ function nextHour() {
 }
 
 export default function CalendarScreen() {
-  const { demoMode, session } = useSession();
+  const { session } = useSession();
   const userId = session?.user.id;
   const { membership } = useMyOrg(userId);
   const { events: liveEvents, refresh } = useEvents(membership?.org.id);
@@ -38,19 +37,7 @@ export default function CalendarScreen() {
   const [repeat, setRepeat] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const baseEvents: EventRow[] = demoMode
-    ? mockEvents.map((e, i) => ({
-        id: e.id,
-        org_id: 'demo',
-        title: e.title,
-        location_text: e.place,
-        starts_at: dayjs().hour(12 + i).minute(0).toISOString(),
-        ends_at: null,
-        all_day: false,
-        created_by: null,
-        rrule: null,
-      }))
-    : liveEvents;
+  const baseEvents: EventRow[] = liveEvents;
 
   // Expand yearly-repeating events into this year ± 1 (birthdays, anniversaries).
   const events = useMemo(() => {
@@ -117,7 +104,6 @@ export default function CalendarScreen() {
   };
 
   const confirmDelete = (e: EventRow) => {
-    if (demoMode) return;
     const canDelete = isAdmin || e.created_by === userId;
     if (!canDelete) return;
     const realId = e.id.split('@')[0];
@@ -147,7 +133,7 @@ export default function CalendarScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
           <ScreenTitle>Calendar</ScreenTitle>
-          {!demoMode && membership && (
+          {membership && (
             <Pressable style={s.addBtn} onPress={openNew}>
               <Text style={s.addBtnText}>+ Event</Text>
             </Pressable>
@@ -258,10 +244,10 @@ export default function CalendarScreen() {
         {visible.length === 0 && (
           <Card style={s.empty}>
             <Text style={type.headline}>
-              {membership || demoMode ? 'Nothing scheduled' : 'No organization yet'}
+              {membership ? 'Nothing scheduled' : 'No organization yet'}
             </Text>
             <Text style={type.subhead}>
-              {membership || demoMode
+              {membership
                 ? `No events in this ${mode.toLowerCase()}.`
                 : 'Join or create your chapter on the Home tab to start a calendar.'}
             </Text>
@@ -292,7 +278,7 @@ export default function CalendarScreen() {
             </Card>
           </Pressable>
         ))}
-        {!demoMode && visible.length > 0 && (
+        {visible.length > 0 && (
           <Text style={s.hintText}>Hold an event to delete it (creator or admin).</Text>
         )}
       </ScrollView>

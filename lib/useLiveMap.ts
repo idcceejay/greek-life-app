@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import { supabase, supabaseConfigured } from './supabase';
-import { nearby as mockNearby } from './mock';
 
 export type MapPin = {
   user_id: string;
@@ -17,25 +16,22 @@ export type MapPin = {
 const PUBLISH_INTERVAL_MS = 60_000;
 const REFRESH_INTERVAL_MS = 30_000;
 
-function demoPins(center: { lat: number; lng: number }): MapPin[] {
-  return mockNearby.map((n) => ({
-    user_id: n.id,
-    username: n.name.toLowerCase().replace(/\s/g, '_'),
-    full_name: n.name,
-    lat: center.lat + (n.y - 0.5) * 0.012,
-    lng: center.lng + (n.x - 0.5) * 0.012,
-    place_label: n.place,
-    captured_at: new Date().toISOString(),
-    is_self: !!n.isSelf,
-  }));
-}
-
+/** Demo pins arranged around a center point (used when Supabase is not configured). */
+/**
+ * Snap-map style live location:
+ * - asks foreground permission, follows the device position
+ * - publishes a ping to Supabase once a minute while the map is open (students only;
+ *   RLS enforces sharing/ghost settings on the read side)
+ * - polls visible chapter members' latest pins
+ * No background tracking, no speed — presence, not surveillance.
+ */
 export function useLiveMap(enabled: boolean, isStudent: boolean) {
   const [permission, setPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
   const [pins, setPins] = useState<MapPin[]>([]);
   const lastPublish = useRef(0);
 
+  // Follow device position
   useEffect(() => {
     if (!enabled) return;
     let sub: Location.LocationSubscription | null = null;
@@ -50,6 +46,7 @@ export function useLiveMap(enabled: boolean, isStudent: boolean) {
         (pos) => {
           const point = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setMe(point);
+          // Publish (throttled) — WKT is lng lat order
           if (
             supabaseConfigured &&
             isStudent &&
@@ -73,25 +70,23 @@ export function useLiveMap(enabled: boolean, isStudent: boolean) {
     };
   }, [enabled, isStudent]);
 
+  // Poll visible pins
   useEffect(() => {
     if (!enabled) return;
-    if (!supabaseConfigured) {
-      const center = me ?? { lat: 33.948, lng: -83.3773 };
-      setPins(demoPins(center));
-      return;
-    }
+    let timer: ReturnType<typeof setInterval>;
     const load = async () => {
       const { data } = await supabase.rpc('get_visible_locations');
       if (data) setPins(data as MapPin[]);
     };
     load();
-    const timer = setInterval(load, REFRESH_INTERVAL_MS);
+    timer = setInterval(load, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [enabled, me === null]);
 
   return { permission, me, pins };
 }
 
+/** Great-circle distance in miles between two points. */
 export function milesBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 3958.8;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;

@@ -25,9 +25,22 @@ function HomeIcon({ focused }: { focused: boolean }) {
 }
 
 export default function TabLayout() {
-  const { demoMode, loading, session, profile } = useSession();
+  const { configured, loading, session, profile } = useSession();
 
-  if (!demoMode) {
+  if (!configured) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas, padding: 24 }}>
+        <Text style={{ fontSize: 17, fontWeight: '600', color: colors.ink, textAlign: 'center' }}>
+          Rally isn't configured
+        </Text>
+        <Text style={{ fontSize: 15, color: colors.inkSecondary, textAlign: 'center', marginTop: 8 }}>
+          This build is missing its server settings. Reinstall the latest build.
+        </Text>
+      </View>
+    );
+  }
+
+  {
     if (loading) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}>

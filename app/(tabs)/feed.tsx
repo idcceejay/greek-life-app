@@ -14,15 +14,14 @@ import {
   REPORT_REASONS,
   ReportReason,
 } from '../../lib/data';
-import { posts as mockPosts } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
 dayjs.extend(relativeTime);
 
 export default function FeedScreen() {
-  const { demoMode, session, profile } = useSession();
+  const { session, profile } = useSession();
   const userId = session?.user.id;
-  const isStudent = demoMode || profile?.account_type === 'student';
+  const isStudent = profile?.account_type === 'student';
   const { posts: livePosts, loading, createPost, vote, refresh } = usePosts(
     profile?.school_id,
     userId,
@@ -31,7 +30,6 @@ export default function FeedScreen() {
   const [showNew, setShowNew] = useState(false);
   const [body, setBody] = useState('');
   const [err, setErr] = useState<string | null>(null);
-  const [demoVotes, setDemoVotes] = useState<Record<string, 1 | -1 | 0>>({});
   const [reportOn, setReportOn] = useState<string | null>(null);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
 
@@ -56,24 +54,11 @@ export default function FeedScreen() {
     setTimeout(() => setReportMsg(null), 5000);
   };
 
-  const posts: PostRow[] = demoMode
-    ? mockPosts.map((p) => ({
-        id: p.id,
-        body: p.body,
-        score: p.up - p.down + (demoVotes[p.id] ?? 0),
-        created_at: new Date().toISOString(),
-        myVote: demoVotes[p.id] ?? 0,
-      }))
-    : livePosts;
+  const posts: PostRow[] = livePosts;
 
   const submitNew = async () => {
     setErr(null);
     if (body.trim().length < 3) return setErr('Write something first.');
-    if (demoMode) {
-      setShowNew(false);
-      setBody('');
-      return;
-    }
     const res = await createPost(body);
     if (!res.ok) return setErr(res.error);
     setShowNew(false);
@@ -81,10 +66,6 @@ export default function FeedScreen() {
   };
 
   const doVote = (id: string, dir: 1 | -1) => {
-    if (demoMode) {
-      setDemoVotes((v) => ({ ...v, [id]: v[id] === dir ? 0 : dir }));
-      return;
-    }
     vote(id, dir);
   };
 
@@ -132,13 +113,11 @@ export default function FeedScreen() {
             <Card style={s.post}>
               <View style={s.postHeader}>
                 <Text style={type.caption}>
-                  anonymous · {demoMode ? '2h' : dayjs(item.created_at).fromNow()}
+                  anonymous · {dayjs(item.created_at).fromNow()}
                 </Text>
-                {!demoMode && (
-                  <Pressable onPress={() => setReportOn(item.id)} hitSlop={10}>
-                    <Text style={s.moreBtn}>•••</Text>
-                  </Pressable>
-                )}
+                <Pressable onPress={() => setReportOn(item.id)} hitSlop={10}>
+                  <Text style={s.moreBtn}>•••</Text>
+                </Pressable>
               </View>
               <Text style={[type.body, s.postBody]}>{item.body}</Text>
               <View style={s.voteRow}>

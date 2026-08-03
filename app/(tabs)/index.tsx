@@ -15,12 +15,11 @@ import {
   requestJoin,
   Org,
 } from '../../lib/data';
-import { chats as mockChats, nextEvent as mockNext, org as mockOrg } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { demoMode, session, profile } = useSession();
+  const { session, profile } = useSession();
   const userId = session?.user.id;
   const { membership, loading: orgLoading, refresh: refreshOrg } = useMyOrg(userId);
   const { events, refresh: refreshEvents } = useEvents(membership?.org.id);
@@ -41,8 +40,8 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    if (showOrg && !demoMode) listSchoolOrgs().then(setOrgs);
-  }, [showOrg, demoMode]);
+    if (showOrg) listSchoolOrgs().then(setOrgs);
+  }, [showOrg]);
 
   const upcoming = events.filter((e) => dayjs(e.starts_at).isAfter(dayjs().subtract(2, 'hour')));
   const next = upcoming[0];
@@ -56,7 +55,6 @@ export default function HomeScreen() {
       .toUpperCase() || 'ME';
 
   const onAvatar = () => {
-    if (demoMode) return;
     router.push('/settings');
   };
 
@@ -87,34 +85,6 @@ export default function HomeScreen() {
     );
   };
 
-  // ---------- DEMO MODE (design preview only, no backend configured) ----------
-  if (demoMode) {
-    const unread = mockChats.reduce((n, c) => n + c.unread, 0);
-    return (
-      <SafeAreaView style={s.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          <View style={s.headerRow}>
-            <View>
-              <Text style={type.caption}>{mockOrg.kind} · design preview</Text>
-              <Text style={type.largeTitle}>{mockOrg.name}</Text>
-            </View>
-            <Avatar initials="CR" size={40} />
-          </View>
-          <Card style={s.block}>
-            <Text style={type.eyebrow}>Next event · {mockNext.when}</Text>
-            <Text style={[type.title2, s.heroTitle]}>{mockNext.title}</Text>
-            <Pill label={`RSVP · ${mockNext.rsvpGoing} going`} />
-          </Card>
-          <Card style={s.block}>
-            <Text style={type.headline}>Chats</Text>
-            <Text style={type.subhead}>{unread} unread — demo data</Text>
-          </Card>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ---------- LIVE ----------
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>

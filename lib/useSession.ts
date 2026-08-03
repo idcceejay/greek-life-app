@@ -54,7 +54,7 @@ export function useSession() {
   }, [session?.user.id]);
 
   return {
-    demoMode: !supabaseConfigured,
+    configured: supabaseConfigured,
     loading: loading || (!!session && !profileChecked),
     session,
     profile,

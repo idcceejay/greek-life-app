@@ -1,7 +1,6 @@
 /**
- * Live data layer. Every hook returns real Supabase data; screens must handle
- * their own empty states. Demo/mock data is ONLY used when the app runs with
- * no backend configured (see lib/mock.ts + supabaseConfigured).
+ * Live data layer. Every hook returns real Supabase data and screens render
+ * their own empty states. There is no mock/demo data anywhere in the app.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, supabaseConfigured } from './supabase';

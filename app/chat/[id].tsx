@@ -28,22 +28,18 @@ import {
   ReportReason,
   UserHit,
 } from '../../lib/data';
-import { supabase, supabaseConfigured } from '../../lib/supabase';
-import { chats as mockChats, messagesByChat } from '../../lib/mock';
+import { supabase } from '../../lib/supabase';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { demoMode, session } = useSession();
+  const { session } = useSession();
   const userId = session?.user.id;
   const listRef = useRef<FlatList>(null);
 
   const [chatName, setChatName] = useState<string>('Chat');
-  const { messages: liveMessages, send } = useMessages(demoMode ? undefined : id, userId);
-  const [demoMessages, setDemoMessages] = useState(
-    demoMode ? (messagesByChat[id ?? ''] ?? []) : [],
-  );
+  const { messages: liveMessages, send } = useMessages(id, userId);
   const [draft, setDraft] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -106,11 +102,7 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    if (demoMode) {
-      setChatName(mockChats.find((c) => c.id === id)?.name ?? 'Chat');
-      return;
-    }
-    if (!supabaseConfigured || !id) return;
+    if (!id) return;
     supabase
       .from('chats')
       .select('name, type')
@@ -120,31 +112,17 @@ export default function ChatScreen() {
         const row = data as { name: string | null; type: string } | null;
         setChatName(row?.name ?? (row?.type === 'dm' ? 'Direct message' : 'Chat'));
       });
-  }, [id, demoMode]);
+  }, [id]);
 
-  const messages: (MessageRow & { mine: boolean })[] = demoMode
-    ? demoMessages.map((m) => ({
-        id: m.id,
-        chat_id: id ?? '',
-        sender_id: m.mine ? 'me' : 'them',
-        body: m.body,
-        created_at: new Date().toISOString(),
-        sender_name: m.from,
-        mine: m.mine,
-      }))
-    : liveMessages.map((m) => ({ ...m, mine: m.sender_id === userId }));
+  const messages: (MessageRow & { mine: boolean })[] = liveMessages.map((m) => ({
+    ...m,
+    mine: m.sender_id === userId,
+  }));
 
   const submit = async () => {
     const body = draft.trim();
     if (!body) return;
     setDraft('');
-    if (demoMode) {
-      setDemoMessages((m) => [
-        ...m,
-        { id: String(Date.now()), from: 'You', mine: true, body, at: 'now' },
-      ]);
-      return;
-    }
     await send(body);
   };
 
@@ -166,13 +144,9 @@ export default function ChatScreen() {
           />
           <Text style={type.headline}>{chatName}</Text>
         </View>
-        {demoMode ? (
-          <View style={s.headerSpacer} />
-        ) : (
-          <Pressable onPress={openInvite} hitSlop={10} style={s.headerSpacer}>
-            <Text style={s.inviteLink}>Invite</Text>
-          </Pressable>
-        )}
+        <Pressable onPress={openInvite} hitSlop={10} style={s.headerSpacer}>
+          <Text style={s.inviteLink}>Invite</Text>
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -190,14 +164,14 @@ export default function ChatScreen() {
           renderItem={({ item }) => (
             <Pressable
               style={[s.bubbleRow, item.mine && s.bubbleRowMine]}
-              onLongPress={() => !item.mine && !demoMode && setReportOn(item)}
+              onLongPress={() => !item.mine && setReportOn(item)}
               delayLongPress={400}
             >
               <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubbleTheirs]}>
                 {!item.mine && item.sender_name && <Text style={s.sender}>{item.sender_name}</Text>}
                 <Text style={[type.body, item.mine && { color: '#fff' }]}>{item.body}</Text>
                 <Text style={[s.time, item.mine && { color: '#D9D9FB' }]}>
-                  {demoMode ? 'now' : dayjs(item.created_at).format('h:mm A')}
+                  {dayjs(item.created_at).format('h:mm A')}
                 </Text>
               </View>
             </Pressable>

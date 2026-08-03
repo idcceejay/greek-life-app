@@ -8,7 +8,6 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { Avatar, Card, ScreenTitle } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useChats, createGroupChat, joinChatWithCode } from '../../lib/data';
-import { chats as mockChats } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
 dayjs.extend(relativeTime);
@@ -25,7 +24,7 @@ function initialsOf(name: string | null) {
 
 export default function ChatsScreen() {
   const router = useRouter();
-  const { demoMode, session } = useSession();
+  const { session } = useSession();
   const userId = session?.user.id;
   const { membership } = useMyOrg(userId);
   const { chats, loading, refresh } = useChats(userId);
@@ -43,17 +42,7 @@ export default function ChatsScreen() {
     }, [refresh]),
   );
 
-  const data = demoMode
-    ? mockChats.map((c) => ({
-        id: c.id,
-        name: c.name,
-        type: 'group' as const,
-        lastMessage: c.lastMessage,
-        lastAt: null as string | null,
-        _demoAt: c.lastAt,
-        _unread: c.unread,
-      }))
-    : chats.map((c) => ({ ...c, _demoAt: '', _unread: 0 }));
+  const data = chats;
 
   const filtered = data.filter((c) =>
     (c.name ?? '').toLowerCase().includes(query.toLowerCase()),
@@ -90,16 +79,14 @@ export default function ChatsScreen() {
       <View style={s.container}>
         <View style={s.titleRow}>
           <ScreenTitle>Chats</ScreenTitle>
-          {!demoMode && (
-            <View style={s.headerBtns}>
+          <View style={s.headerBtns}>
               <Pressable style={s.joinBtn} onPress={() => setShowJoin(true)}>
                 <Text style={s.joinBtnText}>Join code</Text>
               </Pressable>
-              <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
-                <Text style={s.addBtnText}>+ Group</Text>
-              </Pressable>
-            </View>
-          )}
+            <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
+              <Text style={s.addBtnText}>+ Group</Text>
+            </Pressable>
+          </View>
         </View>
         <TextInput
           style={s.search}
@@ -108,7 +95,7 @@ export default function ChatsScreen() {
           value={query}
           onChangeText={setQuery}
         />
-        {!demoMode && !loading && filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <Card style={s.empty}>
             <Text style={type.headline}>No chats yet</Text>
             <Text style={type.subhead}>
@@ -132,9 +119,8 @@ export default function ChatsScreen() {
               </View>
               <View style={s.rowMeta}>
                 <Text style={type.caption}>
-                  {demoMode ? item._demoAt : item.lastAt ? dayjs(item.lastAt).fromNow() : ''}
+                  {item.lastAt ? dayjs(item.lastAt).fromNow() : ''}
                 </Text>
-                {item._unread > 0 && <View style={s.unreadDot} />}
               </View>
             </Pressable>
           )}
