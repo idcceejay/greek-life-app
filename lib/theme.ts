@@ -1,5 +1,5 @@
 /**
- * Design tokens — derived from "Greek Life App — UI Layout.pdf"
+ * Rally — design tokens, derived from "Greek Life App — UI Layout.pdf"
  * (Apple HIG + bento-grid: soft gray canvas, white rounded cards, indigo accent).
  */
 export const colors = {

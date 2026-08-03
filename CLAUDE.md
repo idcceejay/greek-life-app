@@ -1,11 +1,11 @@
-# Greek Life — All-in-One App · Project context for Claude
+# Rally (app name; repo/folder still "greek-life-app") · Project context for Claude
 
 Read this fully before doing anything. It is the handoff from the Cowork session
 that built this repo (July 8–10, 2026).
 
 ## What this is
 
-All-in-one app for Greek life / campus orgs: calendar, group chat, live member map
+Rally — all-in-one app for Greek life / campus orgs: calendar, group chat, live member map
 (Snap-map style), anonymous campus feed, chapter dues. Apple HIG + bento-grid design —
 reference: `Project-Plan/Greek Life App — UI Layout.pdf`. Successor to
 cooperparrish/College-Orgs-App. Team: Cooper Parrish + Ceejay Raut (owner of this
@@ -13,6 +13,13 @@ machine; GitHub `idcceejay`; beginner-friendly explanations appreciated — avoi
 give exact click-by-click steps for anything outside the code).
 
 **Launch target: 08/31/2026 (App Store). Re-baselined plan: `Project-Plan/Launch-Plan.md`.**
+
+## Naming
+
+Official app name is **Rally** (set 07/29/26). Display name, slug (`rally`), scheme
+(`rally`), and bundle id (`com.rallyapp.mobile`) all say Rally. The GitHub repo, local
+folder, and Supabase project are still named greek-life-app — that's cosmetic, don't
+rename them mid-flight. Historical docs in `Database/` keep their original filenames.
 
 ## Stack & constraints
 

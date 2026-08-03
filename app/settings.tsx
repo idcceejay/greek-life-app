@@ -27,8 +27,8 @@ import {
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 
-const SUPPORT_EMAIL = 'support@greeklifeapp.com'; // TODO: real support inbox before submission
-const PRIVACY_URL = 'https://greeklifeapp.com/privacy'; // TODO: publish before submission
+const SUPPORT_EMAIL = 'support@rallyapp.com'; // TODO: real support inbox before submission
+const PRIVACY_URL = 'https://rallyapp.com/privacy'; // TODO: publish before submission
 
 export default function SettingsScreen() {
   const router = useRouter();

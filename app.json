@@ -1,26 +1,26 @@
 {
   "expo": {
-    "name": "Greek Life",
-    "slug": "greek-life-app",
+    "name": "Rally",
+    "slug": "rally",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.greeklife.app",
+      "bundleIdentifier": "com.rallyapp.mobile",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Greek Life shows you on your chapter's live map and confirms you're at an event when you check in. Only members of your organization can see you, and only while sharing is on.",
+        "NSLocationWhenInUseUsageDescription": "Rally shows you on your chapter's live map and confirms you're at an event when you check in. Only members of your organization can see you, and only while sharing is on.",
         "NSCameraUsageDescription": "Take a photo to use as your profile picture or to send in a chat.",
         "NSPhotoLibraryUsageDescription": "Choose a photo for your profile picture or to send in a chat."
       }
     },
     "android": {
-      "package": "com.greeklife.app",
+      "package": "com.rallyapp.mobile",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -34,13 +34,13 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "greeklife",
+    "scheme": "rally",
     "plugins": [
       "expo-router",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Greek Life shows you on your chapter's live map and confirms you're at an event when you check in.",
+          "locationWhenInUsePermission": "Rally shows you on your chapter's live map and confirms you're at an event when you check in.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }

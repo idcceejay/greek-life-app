@@ -1,6 +1,8 @@
-# Greek Life — All-in-One App
+# Rally
 
-The all-in-one app for Greek life, clubs, and campus organizations: calendar, group
+*All-in-one app for Greek life, clubs, and campus organizations.*
+
+Rally is the all-in-one app for Greek life, clubs, and campus organizations: calendar, group
 messaging, live member map, anonymous campus feed, and chapter dues — in one place,
 with an Apple HIG / bento-grid design.
 
@@ -15,7 +17,7 @@ the original Gantt chart, technology selection, ERD history, and UI layout live 
 | Mobile | React Native (Expo SDK 57, Expo Router, TypeScript) |
 | Backend | Supabase — Postgres 15 + PostGIS, Auth, Realtime, Storage, Edge Functions |
 | Payments | Stripe Connect (our rail) + reconciliation with mandated Greek platforms |
-| Design | Apple Human Interface Guidelines, bento-grid home (`Project-Plan/Greek Life App — UI Layout.pdf`) |
+| Design | Apple Human Interface Guidelines, bento-grid home (`Project-Plan/Rally — UI Layout.pdf`) |
 
 ## Repository layout
 

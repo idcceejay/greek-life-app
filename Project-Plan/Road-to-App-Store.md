@@ -1,4 +1,4 @@
-# Road to the App Store — remaining work & team split
+# Rally — road to the App Store — remaining work & team split
 
 **Team:** Ceejay · Cooper · TJ
 **Written:** 07/29/2026 · **Original target:** 08/31/2026

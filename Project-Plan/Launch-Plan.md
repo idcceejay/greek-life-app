@@ -1,6 +1,6 @@
 # Launch Plan & Monetization Strategy
 
-**Product:** Greek Life — All-in-One App (working title)
+**Product:** Rally — all-in-one app for Greek life & campus orgs
 **Team:** Cooper Parrish, Ceejay Raut
 **Plan date:** 07/08/2026 · **Launch target unchanged: 08/31/2026**
 
