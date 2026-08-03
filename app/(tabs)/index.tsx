@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Sheet } from '../../components/Sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -13,7 +13,6 @@ import {
   createOrganization,
   listSchoolOrgs,
   requestJoin,
-  signOut,
   Org,
 } from '../../lib/data';
 import { chats as mockChats, nextEvent as mockNext, org as mockOrg } from '../../lib/mock';
@@ -58,10 +57,7 @@ export default function HomeScreen() {
 
   const onAvatar = () => {
     if (demoMode) return;
-    Alert.alert(profile?.full_name ?? 'Account', session?.user.email ?? '', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
-    ]);
+    router.push('/settings');
   };
 
   const doCreateOrg = async () => {

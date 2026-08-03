@@ -22,6 +22,10 @@ import {
   createChatInvite,
   searchUsers,
   addChatMember,
+  reportContent,
+  blockUser,
+  REPORT_REASONS,
+  ReportReason,
   UserHit,
 } from '../../lib/data';
 import { supabase, supabaseConfigured } from '../../lib/supabase';
@@ -48,6 +52,24 @@ export default function ChatScreen() {
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<UserHit[]>([]);
   const [added, setAdded] = useState<string[]>([]);
+  const [reportOn, setReportOn] = useState<MessageRow | null>(null);
+  const [modMsg, setModMsg] = useState<string | null>(null);
+
+  const submitReport = async (reason: ReportReason) => {
+    if (!reportOn) return;
+    const res = await reportContent('message', reportOn.id, reason);
+    setReportOn(null);
+    setModMsg(res.ok ? 'Reported. Our team reviews within 24 hours.' : res.error);
+    setTimeout(() => setModMsg(null), 4000);
+  };
+
+  const doBlockSender = async () => {
+    if (!reportOn?.sender_id) return;
+    const res = await blockUser(reportOn.sender_id);
+    setReportOn(null);
+    setModMsg(res.ok ? 'Blocked.' : res.error);
+    setTimeout(() => setModMsg(null), 4000);
+  };
 
   const openInvite = async () => {
     setInviteErr(null);
@@ -166,7 +188,11 @@ export default function ChatScreen() {
             </Text>
           }
           renderItem={({ item }) => (
-            <View style={[s.bubbleRow, item.mine && s.bubbleRowMine]}>
+            <Pressable
+              style={[s.bubbleRow, item.mine && s.bubbleRowMine]}
+              onLongPress={() => !item.mine && !demoMode && setReportOn(item)}
+              delayLongPress={400}
+            >
               <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubbleTheirs]}>
                 {!item.mine && item.sender_name && <Text style={s.sender}>{item.sender_name}</Text>}
                 <Text style={[type.body, item.mine && { color: '#fff' }]}>{item.body}</Text>
@@ -174,9 +200,10 @@ export default function ChatScreen() {
                   {demoMode ? 'now' : dayjs(item.created_at).format('h:mm A')}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           )}
         />
+        {modMsg && <Text style={s.modBanner}>{modMsg}</Text>}
         <View style={s.composer}>
           <TextInput
             style={s.input}
@@ -244,6 +271,28 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       </Sheet>
+
+      {/* Report / block a message */}
+      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)}>
+        <View style={s.sheet}>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Report message</Text>
+          <Text style={type.caption}>Reviewed within 24 hours.</Text>
+          {REPORT_REASONS.map((r) => (
+            <Pressable key={r.key} style={s.hitRow} onPress={() => submitReport(r.key)}>
+              <Text style={type.body}>{r.label}</Text>
+              <Text style={s.addLink}>›</Text>
+            </Pressable>
+          ))}
+          <Pressable style={s.hitRow} onPress={doBlockSender}>
+            <Text style={[type.body, { color: colors.danger, fontWeight: '600' }]}>
+              Block {reportOn?.sender_name ?? 'this person'}
+            </Text>
+          </Pressable>
+          <Pressable style={s.doneBtn} onPress={() => setReportOn(null)}>
+            <Text style={s.doneBtnText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -305,6 +354,12 @@ const s = StyleSheet.create({
     paddingVertical: spacing.m,
   },
   addLink: { color: colors.accent, fontWeight: '600', fontSize: 15 },
+  modBanner: {
+    ...type.caption,
+    textAlign: 'center',
+    paddingVertical: spacing.s,
+    backgroundColor: colors.accentSoft,
+  },
   err: { color: colors.danger, fontSize: 14 },
   doneBtn: {
     backgroundColor: colors.accent,

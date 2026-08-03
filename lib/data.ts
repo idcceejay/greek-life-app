@@ -405,6 +405,89 @@ export function usePosts(schoolId: string | null | undefined, userId: string | u
 }
 
 // ---------------------------------------------------------------------------
+// Moderation & account (App Store compliance)
+// ---------------------------------------------------------------------------
+export type ReportTarget = 'post' | 'comment' | 'message' | 'profile';
+export type ReportReason = 'harassment' | 'hate' | 'spam' | 'danger' | 'other';
+
+export const REPORT_REASONS: { key: ReportReason; label: string }[] = [
+  { key: 'harassment', label: 'Harassment or bullying' },
+  { key: 'hate', label: 'Hate speech' },
+  { key: 'danger', label: 'Violence or self-harm' },
+  { key: 'spam', label: 'Spam or scam' },
+  { key: 'other', label: 'Something else' },
+];
+
+export async function reportContent(
+  targetType: ReportTarget,
+  targetId: string,
+  reason: ReportReason,
+  detail?: string,
+) {
+  const { data, error } = await supabase.rpc('report_content', {
+    p_target_type: targetType,
+    p_target_id: targetId,
+    p_reason: reason,
+    p_detail: detail ?? null,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string; auto_hidden?: boolean };
+  return res.ok
+    ? { ok: true as const, autoHidden: !!res.auto_hidden }
+    : { ok: false as const, error: res.error ?? 'unknown' };
+}
+
+export async function blockUser(userId: string) {
+  const { data, error } = await supabase.rpc('block_user', { p_user: userId });
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string };
+  return res.ok ? { ok: true as const } : { ok: false as const, error: res.error ?? 'unknown' };
+}
+
+export async function blockPostAuthor(postId: string) {
+  const { data, error } = await supabase.rpc('block_post_author', { p_post: postId });
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string };
+  return res.ok ? { ok: true as const } : { ok: false as const, error: res.error ?? 'unknown' };
+}
+
+export async function listBlockedUsers(): Promise<UserHit[]> {
+  const { data } = await supabase.rpc('my_blocked_users');
+  return ((data as { user_id: string; username: string; full_name: string }[]) ?? []).map((r) => ({
+    id: r.user_id,
+    username: r.username,
+    full_name: r.full_name,
+  }));
+}
+
+export async function unblockUser(userId: string) {
+  const { error } = await supabase.from('user_blocks').delete().eq('blocked_id', userId);
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+/** Permanent, irreversible. Required in-app by App Store Guideline 5.1.1(v). */
+export async function deleteMyAccount() {
+  const { data, error } = await supabase.rpc('delete_my_account');
+  if (error) return { ok: false as const, error: error.message };
+  const res = data as { ok: boolean; error?: string };
+  if (!res.ok) return { ok: false as const, error: res.error ?? 'unknown' };
+  await supabase.auth.signOut();
+  return { ok: true as const };
+}
+
+export async function updateProfile(fields: { full_name?: string; username?: string }) {
+  const { error } = await supabase
+    .from('profiles')
+    .update(fields)
+    .eq('id', (await supabase.auth.getUser()).data.user?.id ?? '');
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+export async function setGhostMode(on: boolean) {
+  const { error } = await supabase.from('location_settings').upsert({ ghost_mode: on });
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
 export async function signOut() {
   await supabase.auth.signOut();
 }

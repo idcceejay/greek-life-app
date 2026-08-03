@@ -6,7 +6,14 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { Card, Pill, ScreenTitle } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
-import { usePosts, PostRow } from '../../lib/data';
+import {
+  usePosts,
+  PostRow,
+  reportContent,
+  blockPostAuthor,
+  REPORT_REASONS,
+  ReportReason,
+} from '../../lib/data';
 import { posts as mockPosts } from '../../lib/mock';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
@@ -16,12 +23,38 @@ export default function FeedScreen() {
   const { demoMode, session, profile } = useSession();
   const userId = session?.user.id;
   const isStudent = demoMode || profile?.account_type === 'student';
-  const { posts: livePosts, loading, createPost, vote } = usePosts(profile?.school_id, userId);
+  const { posts: livePosts, loading, createPost, vote, refresh } = usePosts(
+    profile?.school_id,
+    userId,
+  );
 
   const [showNew, setShowNew] = useState(false);
   const [body, setBody] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [demoVotes, setDemoVotes] = useState<Record<string, 1 | -1 | 0>>({});
+  const [reportOn, setReportOn] = useState<string | null>(null);
+  const [reportMsg, setReportMsg] = useState<string | null>(null);
+
+  const submitReport = async (reason: ReportReason) => {
+    if (!reportOn) return;
+    const res = await reportContent('post', reportOn, reason);
+    setReportOn(null);
+    setReportMsg(
+      res.ok
+        ? 'Thanks — that post is hidden from your feed and our team will review it within 24 hours.'
+        : `Could not report: ${res.error}`,
+    );
+    refresh();
+    setTimeout(() => setReportMsg(null), 5000);
+  };
+
+  const doBlock = async (postId: string) => {
+    const res = await blockPostAuthor(postId);
+    setReportOn(null);
+    setReportMsg(res.ok ? 'Blocked. You won’t see their posts or messages.' : res.error);
+    refresh();
+    setTimeout(() => setReportMsg(null), 5000);
+  };
 
   const posts: PostRow[] = demoMode
     ? mockPosts.map((p) => ({
@@ -69,6 +102,11 @@ export default function FeedScreen() {
         <View style={s.filterRow}>
           <Pill label="Campus" />
         </View>
+        {reportMsg && (
+          <Card style={[s.empty, { backgroundColor: colors.accentSoft }]}>
+            <Text style={type.subhead}>{reportMsg}</Text>
+          </Card>
+        )}
 
         {!isStudent && (
           <Card style={s.empty}>
@@ -92,9 +130,16 @@ export default function FeedScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Card style={s.post}>
-              <Text style={type.caption}>
-                anonymous · {demoMode ? '2h' : dayjs(item.created_at).fromNow()}
-              </Text>
+              <View style={s.postHeader}>
+                <Text style={type.caption}>
+                  anonymous · {demoMode ? '2h' : dayjs(item.created_at).fromNow()}
+                </Text>
+                {!demoMode && (
+                  <Pressable onPress={() => setReportOn(item.id)} hitSlop={10}>
+                    <Text style={s.moreBtn}>•••</Text>
+                  </Pressable>
+                )}
+              </View>
               <Text style={[type.body, s.postBody]}>{item.body}</Text>
               <View style={s.voteRow}>
                 <Pressable
@@ -139,6 +184,33 @@ export default function FeedScreen() {
           </View>
         </View>
       </Sheet>
+
+      {/* Report / block */}
+      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)}>
+        <View style={s.modal}>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Report this post</Text>
+          <Text style={type.caption}>
+            We review reports within 24 hours. The post is hidden from your feed right away.
+          </Text>
+          {REPORT_REASONS.map((r) => (
+            <Pressable key={r.key} style={s.reasonRow} onPress={() => submitReport(r.key)}>
+              <Text style={type.body}>{r.label}</Text>
+              <Text style={s.chev}>›</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            style={s.blockRow}
+            onPress={() => reportOn && doBlock(reportOn)}
+          >
+            <Text style={[type.body, { color: colors.danger, fontWeight: '600' }]}>
+              Block this person
+            </Text>
+          </Pressable>
+          <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setReportOn(null)}>
+            <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
+          </Pressable>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -158,6 +230,25 @@ const s = StyleSheet.create({
   filterRow: { marginBottom: spacing.l },
   empty: { gap: 4, marginBottom: spacing.m },
   post: { marginBottom: spacing.m, gap: spacing.s },
+  postHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  moreBtn: { color: colors.inkTertiary, fontSize: 16, fontWeight: '700', letterSpacing: 1 },
+  reasonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+  },
+  blockRow: {
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+    marginTop: spacing.s,
+  },
+  chev: { color: colors.inkTertiary, fontSize: 20 },
   postBody: { lineHeight: 23 },
   voteRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m, marginTop: spacing.xs },
   voteBtn: {
