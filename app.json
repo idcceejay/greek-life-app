@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rallyapp.mobile",
+      "bundleIdentifier": "com.rallygreek.rally",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
@@ -20,7 +20,7 @@
       }
     },
     "android": {
-      "package": "com.rallyapp.mobile",
+      "package": "com.rallygreek.rally",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
