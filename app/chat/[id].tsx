@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,29 +11,119 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import dayjs from 'dayjs';
+import * as Clipboard from 'expo-clipboard';
 import { Avatar } from '../../components/ui';
-import { chats, messagesByChat } from '../../lib/mock';
+import { Sheet } from '../../components/Sheet';
+import { useSession } from '../../lib/useSession';
+import {
+  useMessages,
+  MessageRow,
+  createChatInvite,
+  searchUsers,
+  addChatMember,
+  reportContent,
+  blockUser,
+  REPORT_REASONS,
+  ReportReason,
+  UserHit,
+} from '../../lib/data';
+import { supabase } from '../../lib/supabase';
 import { colors, radius, spacing, type } from '../../lib/theme';
 
-/**
- * Chat thread. Demo state now; wire to `messages` + Supabase Realtime
- * (`postgres_changes` on chat_id) when the backend is connected.
- */
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const chat = chats.find((c) => c.id === id);
-  const [messages, setMessages] = useState(messagesByChat[id ?? ''] ?? []);
-  const [draft, setDraft] = useState('');
+  const { session } = useSession();
+  const userId = session?.user.id;
+  const listRef = useRef<FlatList>(null);
 
-  const send = () => {
+  const [chatName, setChatName] = useState<string>('Chat');
+  const { messages: liveMessages, send } = useMessages(id, userId);
+  const [draft, setDraft] = useState('');
+  const [showInvite, setShowInvite] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [inviteErr, setInviteErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<UserHit[]>([]);
+  const [added, setAdded] = useState<string[]>([]);
+  const [reportOn, setReportOn] = useState<MessageRow | null>(null);
+  const [modMsg, setModMsg] = useState<string | null>(null);
+
+  const submitReport = async (reason: ReportReason) => {
+    if (!reportOn) return;
+    const res = await reportContent('message', reportOn.id, reason);
+    setReportOn(null);
+    setModMsg(res.ok ? 'Reported. Our team reviews within 24 hours.' : res.error);
+    setTimeout(() => setModMsg(null), 4000);
+  };
+
+  const doBlockSender = async () => {
+    if (!reportOn?.sender_id) return;
+    const res = await blockUser(reportOn.sender_id);
+    setReportOn(null);
+    setModMsg(res.ok ? 'Blocked.' : res.error);
+    setTimeout(() => setModMsg(null), 4000);
+  };
+
+  const openInvite = async () => {
+    setInviteErr(null);
+    setCopied(false);
+    setShowInvite(true);
+    if (!id) return;
+    const res = await createChatInvite(id);
+    if (res.ok) setToken(res.token);
+    else
+      setInviteErr(
+        res.error === 'admins_only'
+          ? 'Only group admins can create invite codes.'
+          : res.error,
+      );
+  };
+
+  const runSearch = async (text: string) => {
+    setQ(text);
+    setHits(await searchUsers(text));
+  };
+
+  const addMember = async (u: UserHit) => {
+    if (!id || !u.username) return;
+    const res = await addChatMember(id, u.username);
+    if (res.ok) setAdded((a) => [...a, u.username!]);
+    else
+      setInviteErr(
+        res.error === 'admins_only'
+          ? 'Only group admins can add members.'
+          : res.error === 'not_same_campus'
+            ? 'That person is not on your campus.'
+            : res.error,
+      );
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    supabase
+      .from('chats')
+      .select('name, type')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const row = data as { name: string | null; type: string } | null;
+        setChatName(row?.name ?? (row?.type === 'dm' ? 'Direct message' : 'Chat'));
+      });
+  }, [id]);
+
+  const messages: (MessageRow & { mine: boolean })[] = liveMessages.map((m) => ({
+    ...m,
+    mine: m.sender_id === userId,
+  }));
+
+  const submit = async () => {
     const body = draft.trim();
     if (!body) return;
-    setMessages((m) => [
-      ...m,
-      { id: String(Date.now()), from: 'You', mine: true, body, at: 'now' },
-    ]);
     setDraft('');
+    await send(body);
   };
 
   return (
@@ -43,30 +133,51 @@ export default function ChatScreen() {
           <Text style={s.back}>‹ Back</Text>
         </Pressable>
         <View style={s.headerCenter}>
-          <Avatar initials={chat?.initials ?? '?'} size={32} />
-          <Text style={type.headline}>{chat?.name ?? 'Chat'}</Text>
+          <Avatar
+            initials={chatName
+              .split(' ')
+              .map((w) => w[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase()}
+            size={32}
+          />
+          <Text style={type.headline}>{chatName}</Text>
         </View>
-        <View style={s.headerSpacer} />
+        <Pressable onPress={openInvite} hitSlop={10} style={s.headerSpacer}>
+          <Text style={s.inviteLink}>Invite</Text>
+        </Pressable>
       </View>
 
-      <KeyboardAvoidingView
-        style={s.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
+          ref={listRef}
           data={messages}
           keyExtractor={(m) => m.id}
           contentContainerStyle={s.list}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <Text style={[type.subhead, { textAlign: 'center', marginTop: spacing.xl }]}>
+              No messages yet — say hi 👋
+            </Text>
+          }
           renderItem={({ item }) => (
-            <View style={[s.bubbleRow, item.mine && s.bubbleRowMine]}>
+            <Pressable
+              style={[s.bubbleRow, item.mine && s.bubbleRowMine]}
+              onLongPress={() => !item.mine && setReportOn(item)}
+              delayLongPress={400}
+            >
               <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubbleTheirs]}>
-                {!item.mine && <Text style={s.sender}>{item.from}</Text>}
+                {!item.mine && item.sender_name && <Text style={s.sender}>{item.sender_name}</Text>}
                 <Text style={[type.body, item.mine && { color: '#fff' }]}>{item.body}</Text>
-                <Text style={[s.time, item.mine && { color: '#D9D9FB' }]}>{item.at}</Text>
+                <Text style={[s.time, item.mine && { color: '#D9D9FB' }]}>
+                  {dayjs(item.created_at).format('h:mm A')}
+                </Text>
               </View>
-            </View>
+            </Pressable>
           )}
         />
+        {modMsg && <Text style={s.modBanner}>{modMsg}</Text>}
         <View style={s.composer}>
           <TextInput
             style={s.input}
@@ -74,14 +185,88 @@ export default function ChatScreen() {
             placeholderTextColor={colors.inkTertiary}
             value={draft}
             onChangeText={setDraft}
-            onSubmitEditing={send}
+            onSubmitEditing={submit}
             returnKeyType="send"
           />
-          <Pressable style={s.sendBtn} onPress={send}>
+          <Pressable style={s.sendBtn} onPress={submit}>
             <Text style={s.sendText}>↑</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Invite / add members */}
+      <Sheet visible={showInvite} onClose={() => setShowInvite(false)}>
+        <View style={s.sheet}>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Add people</Text>
+
+          <Text style={type.caption}>Share this invite code</Text>
+          <Pressable
+            style={s.codeBox}
+            onPress={async () => {
+              if (!token) return;
+              await Clipboard.setStringAsync(token);
+              setCopied(true);
+            }}
+          >
+            <Text style={s.codeText}>{token ?? '…'}</Text>
+            <Text style={s.copyHint}>{copied ? 'Copied ✓' : 'Tap to copy'}</Text>
+          </Pressable>
+          <Text style={type.caption}>
+            They tap “Join code” on the Chats tab and paste it. Expires in 30 days.
+          </Text>
+
+          <Text style={[type.caption, { marginTop: spacing.m }]}>Or add by username</Text>
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search name or username"
+            placeholderTextColor={colors.inkTertiary}
+            autoCapitalize="none"
+            value={q}
+            onChangeText={runSearch}
+          />
+          {hits.map((u) => (
+            <Pressable key={u.id} style={s.hitRow} onPress={() => addMember(u)}>
+              <View>
+                <Text style={type.headline}>{u.full_name ?? u.username}</Text>
+                <Text style={type.caption}>@{u.username}</Text>
+              </View>
+              <Text style={s.addLink}>
+                {u.username && added.includes(u.username) ? 'Added ✓' : 'Add'}
+              </Text>
+            </Pressable>
+          ))}
+          {q.trim().length >= 2 && hits.length === 0 && (
+            <Text style={type.subhead}>No one found on your campus.</Text>
+          )}
+
+          {inviteErr && <Text style={s.err}>{inviteErr}</Text>}
+          <Pressable style={s.doneBtn} onPress={() => setShowInvite(false)}>
+            <Text style={s.doneBtnText}>Done</Text>
+          </Pressable>
+        </View>
+      </Sheet>
+
+      {/* Report / block a message */}
+      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)}>
+        <View style={s.sheet}>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Report message</Text>
+          <Text style={type.caption}>Reviewed within 24 hours.</Text>
+          {REPORT_REASONS.map((r) => (
+            <Pressable key={r.key} style={s.hitRow} onPress={() => submitReport(r.key)}>
+              <Text style={type.body}>{r.label}</Text>
+              <Text style={s.addLink}>›</Text>
+            </Pressable>
+          ))}
+          <Pressable style={s.hitRow} onPress={doBlockSender}>
+            <Text style={[type.body, { color: colors.danger, fontWeight: '600' }]}>
+              Block {reportOn?.sender_name ?? 'this person'}
+            </Text>
+          </Pressable>
+          <Pressable style={s.doneBtn} onPress={() => setReportOn(null)}>
+            <Text style={s.doneBtnText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -99,9 +284,66 @@ const s = StyleSheet.create({
     borderBottomColor: colors.separator,
   },
   back: { color: colors.accent, fontSize: 17, fontWeight: '600', width: 64 },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.s },
-  headerSpacer: { width: 64 },
-  list: { padding: spacing.l, gap: spacing.s },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.s,
+  },
+  headerSpacer: { width: 64, alignItems: 'flex-end' },
+  inviteLink: { color: colors.accent, fontSize: 17, fontWeight: '600' },
+  sheet: {
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.s,
+  },
+  codeBox: {
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    padding: spacing.l,
+    alignItems: 'center',
+    gap: 4,
+  },
+  codeText: { fontSize: 22, fontWeight: '700', color: colors.ink, letterSpacing: 1 },
+  copyHint: { fontSize: 13, color: colors.accent, fontWeight: '600' },
+  searchInput: {
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: 13,
+    fontSize: 16,
+    color: colors.ink,
+  },
+  hitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+  },
+  addLink: { color: colors.accent, fontWeight: '600', fontSize: 15 },
+  modBanner: {
+    ...type.caption,
+    textAlign: 'center',
+    paddingVertical: spacing.s,
+    backgroundColor: colors.accentSoft,
+  },
+  err: { color: colors.danger, fontSize: 14 },
+  doneBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.control,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: spacing.s,
+  },
+  doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  list: { padding: spacing.l, gap: spacing.s, flexGrow: 1 },
   bubbleRow: { flexDirection: 'row' },
   bubbleRowMine: { justifyContent: 'flex-end' },
   bubble: {

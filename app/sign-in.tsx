@@ -14,6 +14,11 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 
+/**
+ * Email OTP sign-in: enter email → Supabase emails a 6-digit code → verify.
+ * A .edu address matching a registered school domain unlocks the student tier
+ * (map + feed); any other email creates an alumni-tier account.
+ */
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -59,7 +64,7 @@ export default function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={s.body}>
-          <Text style={type.eyebrow}>Greek Life</Text>
+          <Text style={type.eyebrow}>Rally</Text>
           <Text style={[type.largeTitle, s.title]}>
             {stage === 'email' ? 'Sign in' : 'Check your email'}
           </Text>

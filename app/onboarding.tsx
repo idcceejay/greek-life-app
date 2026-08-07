@@ -13,16 +13,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
+
+dayjs.extend(customParseFormat);
 import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 
-dayjs.extend(customParseFormat);
-
+/**
+ * First-run profile setup. Calls the ensure_profile RPC, which also detects
+ * whether the sign-in email matches a registered school domain (student tier).
+ */
 export default function OnboardingScreen() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
-  const [birthday, setBirthday] = useState('');
+  const [birthday, setBirthday] = useState(''); // MM/DD/YYYY
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

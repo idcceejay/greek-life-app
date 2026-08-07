@@ -42,3 +42,6 @@ yarn-error.*
 
 # local env
 .env
+
+# Claude Code machine-local permissions
+.claude/settings.local.json

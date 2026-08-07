@@ -1,32 +1,65 @@
 {
   "expo": {
-    "name": "Greek Life",
-    "slug": "greek-life-app",
+    "name": "Rally",
+    "slug": "rally",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rallygreek.rally",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Rally shows you on your chapter's live map and confirms you're at an event when you check in. Only members of your organization can see you, and only while sharing is on.",
+        "NSCameraUsageDescription": "Take a photo to use as your profile picture or to send in a chat.",
+        "NSPhotoLibraryUsageDescription": "Choose a photo for your profile picture or to send in a chat."
+      }
     },
     "android": {
+      "package": "com.rallygreek.rally",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "greeklife",
+    "scheme": "rally",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Rally shows you on your chapter's live map and confirms you're at an event when you check in.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9bbe9244-bce6-4f76-be48-d73baf9ad86c"
+      }
+    },
+    "owner": "idc_ceejay"
   }
 }
