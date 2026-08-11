@@ -10,6 +10,7 @@ import {
   useMyOrg,
   useEvents,
   useChats,
+  usePendingCount,
   createOrganization,
   listSchoolOrgs,
   requestJoin,
@@ -26,6 +27,8 @@ export default function HomeScreen() {
   const { events, refresh: refreshEvents } = useEvents(membership?.org.id);
   const { chats, refresh: refreshChats } = useChats(userId);
   const { outstanding: duesOwed, refresh: refreshDues } = useMyCharges();
+  const { count: pendingCount, refresh: refreshPending } = usePendingCount(membership?.org.id);
+  const isAdmin = membership?.role === 'admin';
 
   const [showOrg, setShowOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
@@ -39,7 +42,8 @@ export default function HomeScreen() {
       refreshEvents();
       refreshChats();
       refreshDues();
-    }, [refreshOrg, refreshEvents, refreshChats, refreshDues]),
+      refreshPending();
+    }, [refreshOrg, refreshEvents, refreshChats, refreshDues, refreshPending]),
   );
 
   useEffect(() => {
@@ -163,6 +167,33 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Members. Pending requests are invisible until an admin sees them, so
+            the count is surfaced here rather than only inside the screen. */}
+        {membership && (
+          <Card style={s.block} onPress={() => router.push('/members')}>
+            <View style={s.membersRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={type.headline}>Members</Text>
+                <Text
+                  style={[
+                    type.subhead,
+                    isAdmin && pendingCount > 0 && { color: colors.warning, fontWeight: '600' },
+                  ]}
+                >
+                  {isAdmin && pendingCount > 0
+                    ? `${pendingCount} waiting to join`
+                    : 'Roster and roles'}
+                </Text>
+              </View>
+              {isAdmin && pendingCount > 0 && (
+                <View style={s.badge}>
+                  <Text style={s.badgeText}>{pendingCount}</Text>
+                </View>
+              )}
+            </View>
+          </Card>
+        )}
+
         {/* Chats */}
         <Card style={s.block} onPress={() => router.push('/(tabs)/chats')}>
           <View style={s.cardHeaderRow}>
@@ -256,6 +287,17 @@ const s = StyleSheet.create({
     marginBottom: spacing.l,
   },
   block: { marginBottom: spacing.m },
+  membersRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m },
+  badge: {
+    minWidth: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    backgroundColor: colors.warning,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   heroTitle: { marginTop: 4, marginBottom: spacing.m, fontSize: 26 },
   row: { flexDirection: 'row', gap: spacing.m },
   half: { flex: 1 },

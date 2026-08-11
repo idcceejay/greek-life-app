@@ -490,3 +490,166 @@ export async function setGhostMode(on: boolean) {
 export async function signOut() {
   await supabase.auth.signOut();
 }
+
+// ---------------------------------------------------------------------------
+// Member management (roster, approvals, roles)
+//
+// RLS already supports all of this (0003_rls.sql):
+//   memberships_read          members see the roster
+//   memberships_admin_update  admins approve and change roles
+//   memberships_admin_delete  admins remove; users may leave
+// so these are plain table writes rather than RPCs. The only server-side
+// surprise is trg_protect_last_admin (0010), which refuses to demote or remove
+// an org's final active admin; its message is already user-facing, so it is
+// passed straight through.
+//
+// Decline and remove DELETE the row rather than setting status = 'removed'.
+// memberships has UNIQUE (org_id, user_id) and memberships_self_request only
+// permits inserting a 'pending' row, so a lingering 'removed' row would lock
+// that person out of ever requesting again.
+// ---------------------------------------------------------------------------
+
+export type MemberRole = 'admin' | 'treasurer' | 'user' | 'alumni';
+export type MemberStatus = 'pending' | 'active' | 'removed';
+
+export type MemberRow = {
+  id: string;
+  userId: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joinedAt: string;
+  fullName: string | null;
+  username: string | null;
+};
+
+export const MEMBER_ROLES: { key: MemberRole; label: string; blurb: string }[] = [
+  { key: 'admin', label: 'Admin', blurb: 'Full control: roster, roles, events, chats' },
+  { key: 'treasurer', label: 'Treasurer', blurb: 'Dues and payments, plus everything a member can do' },
+  { key: 'user', label: 'Member', blurb: 'Standard chapter member' },
+  { key: 'alumni', label: 'Alumni', blurb: 'Calendar access only; cannot be made admin' },
+];
+
+type ProfileBit = { full_name: string | null; username: string | null };
+
+type MembershipQueryRow = {
+  id: string;
+  user_id: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joined_at: string;
+  // Supabase types an embedded relation as an array even though membership ->
+  // profile is many-to-one and arrives as a single object at runtime. Accept
+  // both and normalise in one place.
+  profiles: ProfileBit | ProfileBit[] | null;
+};
+
+function oneProfile(p: MembershipQueryRow['profiles']): ProfileBit | null {
+  if (!p) return null;
+  return Array.isArray(p) ? p[0] ?? null : p;
+}
+
+/**
+ * Roster for one organization, split into the three groups the screen shows.
+ *
+ * profiles may come back null: profiles_read grants access via
+ * shares_active_org_with() OR same school, and a *pending* applicant satisfies
+ * neither branch if their school_id was never set. The row is still returned,
+ * so the screen falls back to a placeholder name rather than rendering blank.
+ */
+export function useMembers(orgId: string | undefined) {
+  const [pending, setPending] = useState<MemberRow[]>([]);
+  const [active, setActive] = useState<MemberRow[]>([]);
+  const [alumni, setAlumni] = useState<MemberRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!supabaseConfigured || !orgId) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    const { data, error: qErr } = await supabase
+      .from('memberships')
+      .select('id, user_id, role, status, joined_at, profiles(full_name, username)')
+      .eq('org_id', orgId)
+      .neq('status', 'removed')
+      .order('joined_at', { ascending: true });
+
+    if (qErr) {
+      setError(qErr.message);
+      setLoading(false);
+      return;
+    }
+
+    const rows: MemberRow[] = ((data as unknown as MembershipQueryRow[] | null) ?? []).map((r) => {
+      const p = oneProfile(r.profiles);
+      return {
+        id: r.id,
+        userId: r.user_id,
+        role: r.role,
+        status: r.status,
+        joinedAt: r.joined_at,
+        fullName: p?.full_name ?? null,
+        username: p?.username ?? null,
+      };
+    });
+
+    setPending(rows.filter((r) => r.status === 'pending'));
+    setActive(rows.filter((r) => r.status === 'active' && r.role !== 'alumni'));
+    setAlumni(rows.filter((r) => r.status === 'active' && r.role === 'alumni'));
+    setLoading(false);
+  }, [orgId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { pending, active, alumni, loading, error, refresh };
+}
+
+/** Count of pending join requests, for the badge on the Home org card. */
+export function usePendingCount(orgId: string | undefined) {
+  const [count, setCount] = useState(0);
+
+  const refresh = useCallback(async () => {
+    if (!supabaseConfigured || !orgId) return;
+    const { count: n } = await supabase
+      .from('memberships')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .eq('status', 'pending');
+    setCount(n ?? 0);
+  }, [orgId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { count, refresh };
+}
+
+export async function approveMember(membershipId: string) {
+  const { error } = await supabase
+    .from('memberships')
+    .update({ status: 'active' })
+    .eq('id', membershipId);
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+/** Decline a request. Deletes the row so the person can apply again later. */
+export async function declineMember(membershipId: string) {
+  const { error } = await supabase.from('memberships').delete().eq('id', membershipId);
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+export async function setMemberRole(membershipId: string, role: MemberRole) {
+  const { error } = await supabase.from('memberships').update({ role }).eq('id', membershipId);
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+/** Remove a member. Deletes the row so they can rejoin later if invited back. */
+export async function removeMember(membershipId: string) {
+  const { error } = await supabase.from('memberships').delete().eq('id', membershipId);
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
