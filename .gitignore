@@ -45,3 +45,6 @@ yarn-error.*
 
 # Claude Code machine-local permissions
 .claude/settings.local.json
+
+# generated setup log
+_setup-report.txt
