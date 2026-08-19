@@ -1,1 +1,4 @@
 .env
+expo-env.d.ts
+.claude/settings.local.json
+node_modules/
