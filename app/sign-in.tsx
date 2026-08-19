@@ -15,7 +15,7 @@ import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 
 /**
- * Email OTP sign-in: enter email → Supabase emails a 6-digit code → verify.
+ * Email OTP sign-in: enter email → Supabase emails an 8-digit code → verify.
  * A .edu address matching a registered school domain unlocks the student tier
  * (map + feed); any other email creates an alumni-tier account.
  */
@@ -89,7 +89,7 @@ export default function SignInScreen() {
           ) : (
             <TextInput
               style={[s.input, s.codeInput]}
-              placeholder="123456"
+              placeholder="12345678"
               placeholderTextColor={colors.inkTertiary}
               keyboardType="number-pad"
               maxLength={10}
