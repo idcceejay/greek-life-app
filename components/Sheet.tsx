@@ -18,10 +18,13 @@ export function Sheet({
   visible,
   onClose,
   children,
+  label,
 }: {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  /** Announced when the sheet opens, e.g. "New post". */
+  label?: string;
 }) {
   const [mounted, setMounted] = useState(visible);
   const progress = useRef(new Animated.Value(0)).current;
@@ -55,10 +58,20 @@ export function Sheet({
         style={s.wrap}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          accessibilityHint="Dismisses this sheet"
+        >
           <Animated.View style={[s.backdrop, { opacity: progress }]} />
         </Pressable>
         <Animated.View
+          // Contains VoiceOver inside the sheet — without this the screen
+          // behind stays swipe-reachable while the sheet is open (SC 2.1.2).
+          accessibilityViewIsModal
+          accessibilityLabel={label}
           style={{
             transform: [
               {

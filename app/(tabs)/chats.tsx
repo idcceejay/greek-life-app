@@ -80,10 +80,22 @@ export default function ChatsScreen() {
         <View style={s.titleRow}>
           <ScreenTitle>Chats</ScreenTitle>
           <View style={s.headerBtns}>
-              <Pressable style={s.joinBtn} onPress={() => setShowJoin(true)}>
+              <Pressable
+                style={s.joinBtn}
+                onPress={() => setShowJoin(true)}
+                hitSlop={{ top: 8, bottom: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Join a group with an invite code"
+              >
                 <Text style={s.joinBtnText}>Join code</Text>
               </Pressable>
-            <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
+            <Pressable
+              style={s.addBtn}
+              onPress={() => setShowNew(true)}
+              hitSlop={{ top: 8, bottom: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="New group"
+            >
               <Text style={s.addBtnText}>+ Group</Text>
             </Pressable>
           </View>
@@ -94,6 +106,7 @@ export default function ChatsScreen() {
           placeholderTextColor={colors.inkTertiary}
           value={query}
           onChangeText={setQuery}
+          accessibilityLabel="Search chats"
         />
         {!loading && filtered.length === 0 && (
           <Card style={s.empty}>
@@ -109,7 +122,14 @@ export default function ChatsScreen() {
           keyExtractor={(c) => c.id}
           ItemSeparatorComponent={() => <View style={s.sep} />}
           renderItem={({ item }) => (
-            <Pressable style={s.row} onPress={() => router.push(`/chat/${item.id}`)}>
+            <Pressable
+              style={s.row}
+              onPress={() => router.push(`/chat/${item.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name ?? 'Direct message'}. ${
+                item.lastMessage ?? 'No messages yet'
+              }${item.lastAt ? `, ${dayjs(item.lastAt).fromNow()}` : ''}`}
+            >
               <Avatar initials={initialsOf(item.name)} />
               <View style={s.rowBody}>
                 <Text style={type.headline}>{item.name ?? 'Direct message'}</Text>
@@ -127,31 +147,50 @@ export default function ChatsScreen() {
         />
       </View>
 
-      <Sheet visible={showNew} onClose={() => setShowNew(false)}>
+      <Sheet visible={showNew} onClose={() => setShowNew(false)} label="New group">
         <View style={s.modal}>
-            <Text style={[type.title2, { marginBottom: spacing.m }]}>New group</Text>
+            <Text style={[type.title2, { marginBottom: spacing.m }]} accessibilityRole="header">
+              New group
+            </Text>
             <TextInput
               style={s.input}
               placeholder="Group name (e.g. Rush Committee)"
               placeholderTextColor={colors.inkTertiary}
               value={name}
               onChangeText={setName}
+              accessibilityLabel="Group name"
             />
-            {err && <Text style={s.err}>{err}</Text>}
+            {err && (
+              <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+                {err}
+              </Text>
+            )}
             <View style={s.modalBtns}>
-              <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
+              <Pressable
+                style={[s.mBtn, s.mBtnGhost]}
+                onPress={() => setShowNew(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+              >
                 <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
               </Pressable>
-              <Pressable style={s.mBtn} onPress={submitNew}>
+              <Pressable
+                style={s.mBtn}
+                onPress={submitNew}
+                accessibilityRole="button"
+                accessibilityLabel="Create group"
+              >
                 <Text style={s.mBtnText}>Create</Text>
               </Pressable>
           </View>
         </View>
       </Sheet>
 
-      <Sheet visible={showJoin} onClose={() => setShowJoin(false)}>
+      <Sheet visible={showJoin} onClose={() => setShowJoin(false)} label="Join a group">
         <View style={s.modal}>
-          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Join a group</Text>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]} accessibilityRole="header">
+            Join a group
+          </Text>
           <Text style={type.caption}>Paste the invite code someone shared with you.</Text>
           <TextInput
             style={s.input}
@@ -160,13 +199,28 @@ export default function ChatsScreen() {
             autoCapitalize="none"
             value={code}
             onChangeText={setCode}
+            accessibilityLabel="Invite code"
           />
-          {joinErr && <Text style={s.err}>{joinErr}</Text>}
+          {joinErr && (
+            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {joinErr}
+            </Text>
+          )}
           <View style={s.modalBtns}>
-            <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowJoin(false)}>
+            <Pressable
+              style={[s.mBtn, s.mBtnGhost]}
+              onPress={() => setShowJoin(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
             </Pressable>
-            <Pressable style={s.mBtn} onPress={submitJoin}>
+            <Pressable
+              style={s.mBtn}
+              onPress={submitJoin}
+              accessibilityRole="button"
+              accessibilityLabel="Join group"
+            >
               <Text style={s.mBtnText}>Join</Text>
             </Pressable>
           </View>

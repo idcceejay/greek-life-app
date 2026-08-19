@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Sheet } from '../../components/Sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
@@ -33,25 +41,37 @@ export default function FeedScreen() {
   const [reportOn, setReportOn] = useState<string | null>(null);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
 
+  /**
+   * The toast is the only confirmation these actions give, and it self-dismisses
+   * after 5s — so it has to be spoken, not just drawn (WCAG SC 4.1.3).
+   */
+  const flash = (msg: string) => {
+    setReportMsg(msg);
+    AccessibilityInfo.announceForAccessibility(msg);
+    setTimeout(() => setReportMsg(null), 5000);
+  };
+
   const submitReport = async (reason: ReportReason) => {
     if (!reportOn) return;
     const res = await reportContent('post', reportOn, reason);
     setReportOn(null);
-    setReportMsg(
+    flash(
       res.ok
         ? 'Thanks — that post is hidden from your feed and our team will review it within 24 hours.'
         : `Could not report: ${res.error}`,
     );
     refresh();
-    setTimeout(() => setReportMsg(null), 5000);
   };
 
   const doBlock = async (postId: string) => {
     const res = await blockPostAuthor(postId);
     setReportOn(null);
-    setReportMsg(res.ok ? 'Blocked. You won’t see their posts or messages.' : res.error);
+    flash(
+      res.ok
+        ? 'Blocked. You won’t see their posts or messages.'
+        : res.error ?? 'Could not block that person.',
+    );
     refresh();
-    setTimeout(() => setReportMsg(null), 5000);
   };
 
   const posts: PostRow[] = livePosts;
@@ -75,7 +95,13 @@ export default function FeedScreen() {
         <View style={s.titleRow}>
           <ScreenTitle>Feed</ScreenTitle>
           {isStudent && (
-            <Pressable style={s.addBtn} onPress={() => setShowNew(true)}>
+            <Pressable
+              style={s.addBtn}
+              onPress={() => setShowNew(true)}
+              hitSlop={{ top: 8, bottom: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="New post"
+            >
               <Text style={s.addBtnText}>+ Post</Text>
             </Pressable>
           )}
@@ -85,7 +111,9 @@ export default function FeedScreen() {
         </View>
         {reportMsg && (
           <Card style={[s.empty, { backgroundColor: colors.accentSoft }]}>
-            <Text style={type.subhead}>{reportMsg}</Text>
+            <Text style={type.subhead} accessibilityLiveRegion="polite" accessibilityRole="alert">
+              {reportMsg}
+            </Text>
           </Card>
         )}
 
@@ -115,24 +143,56 @@ export default function FeedScreen() {
                 <Text style={type.caption}>
                   anonymous · {dayjs(item.created_at).fromNow()}
                 </Text>
-                <Pressable onPress={() => setReportOn(item.id)} hitSlop={10}>
-                  <Text style={s.moreBtn}>•••</Text>
+                <Pressable
+                  onPress={() => setReportOn(item.id)}
+                  hitSlop={14}
+                  accessibilityRole="button"
+                  accessibilityLabel="More options"
+                  accessibilityHint="Report or block the author of this post"
+                >
+                  <Text style={s.moreBtn} accessibilityElementsHidden>
+                    •••
+                  </Text>
                 </Pressable>
               </View>
               <Text style={[type.body, s.postBody]}>{item.body}</Text>
               <View style={s.voteRow}>
                 <Pressable
                   onPress={() => doVote(item.id, 1)}
+                  hitSlop={{ top: 8, bottom: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Upvote"
+                  // State, not colour, is what carries "I voted" to VoiceOver.
+                  accessibilityState={{ selected: item.myVote === 1 }}
                   style={[s.voteBtn, item.myVote === 1 && s.voteBtnUp]}
                 >
-                  <Text style={[s.voteText, item.myVote === 1 && { color: '#fff' }]}>▲</Text>
+                  <Text
+                    style={[s.voteText, item.myVote === 1 && { color: '#fff' }]}
+                    accessibilityElementsHidden
+                  >
+                    ▲
+                  </Text>
                 </Pressable>
-                <Text style={s.scoreText}>{item.score}</Text>
+                <Text
+                  style={s.scoreText}
+                  accessibilityLabel={`Score ${item.score}`}
+                >
+                  {item.score}
+                </Text>
                 <Pressable
                   onPress={() => doVote(item.id, -1)}
+                  hitSlop={{ top: 8, bottom: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Downvote"
+                  accessibilityState={{ selected: item.myVote === -1 }}
                   style={[s.voteBtn, item.myVote === -1 && s.voteBtnDown]}
                 >
-                  <Text style={[s.voteText, item.myVote === -1 && { color: '#fff' }]}>▼</Text>
+                  <Text
+                    style={[s.voteText, item.myVote === -1 && { color: '#fff' }]}
+                    accessibilityElementsHidden
+                  >
+                    ▼
+                  </Text>
                 </Pressable>
               </View>
             </Card>
@@ -140,9 +200,11 @@ export default function FeedScreen() {
         />
       </View>
 
-      <Sheet visible={showNew} onClose={() => setShowNew(false)}>
+      <Sheet visible={showNew} onClose={() => setShowNew(false)} label="New post">
         <View style={s.modal}>
-            <Text style={[type.title2, { marginBottom: spacing.m }]}>New post</Text>
+            <Text style={[type.title2, { marginBottom: spacing.m }]} accessibilityRole="header">
+              New post
+            </Text>
             <Text style={type.caption}>Posts are anonymous to other students.</Text>
             <TextInput
               style={[s.input, s.inputMulti]}
@@ -151,13 +213,29 @@ export default function FeedScreen() {
               value={body}
               onChangeText={setBody}
               multiline
+              accessibilityLabel="Post text"
+              accessibilityHint="Your post is anonymous to other students"
             />
-            {err && <Text style={s.err}>{err}</Text>}
+            {err && (
+              <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+                {err}
+              </Text>
+            )}
             <View style={s.modalBtns}>
-              <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
+              <Pressable
+                style={[s.mBtn, s.mBtnGhost]}
+                onPress={() => setShowNew(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+              >
                 <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
               </Pressable>
-              <Pressable style={s.mBtn} onPress={submitNew}>
+              <Pressable
+                style={s.mBtn}
+                onPress={submitNew}
+                accessibilityRole="button"
+                accessibilityLabel="Post"
+              >
                 <Text style={s.mBtnText}>Post</Text>
               </Pressable>
           </View>
@@ -165,27 +243,45 @@ export default function FeedScreen() {
       </Sheet>
 
       {/* Report / block */}
-      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)}>
+      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)} label="Report this post">
         <View style={s.modal}>
-          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Report this post</Text>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]} accessibilityRole="header">
+            Report this post
+          </Text>
           <Text style={type.caption}>
             We review reports within 24 hours. The post is hidden from your feed right away.
           </Text>
           {REPORT_REASONS.map((r) => (
-            <Pressable key={r.key} style={s.reasonRow} onPress={() => submitReport(r.key)}>
+            <Pressable
+              key={r.key}
+              style={s.reasonRow}
+              onPress={() => submitReport(r.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`Report for ${r.label}`}
+            >
               <Text style={type.body}>{r.label}</Text>
-              <Text style={s.chev}>›</Text>
+              <Text style={s.chev} accessibilityElementsHidden>
+                ›
+              </Text>
             </Pressable>
           ))}
           <Pressable
             style={s.blockRow}
             onPress={() => reportOn && doBlock(reportOn)}
+            accessibilityRole="button"
+            accessibilityLabel="Block this person"
+            accessibilityHint="You will no longer see their posts or messages"
           >
             <Text style={[type.body, { color: colors.danger, fontWeight: '600' }]}>
               Block this person
             </Text>
           </Pressable>
-          <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setReportOn(null)}>
+          <Pressable
+            style={[s.mBtn, s.mBtnGhost]}
+            onPress={() => setReportOn(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+          >
             <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
           </Pressable>
         </View>

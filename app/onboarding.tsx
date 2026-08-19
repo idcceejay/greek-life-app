@@ -62,7 +62,9 @@ export default function OnboardingScreen() {
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
           <Text style={type.eyebrow}>One last step</Text>
-          <Text style={[type.largeTitle, s.title]}>Create your profile</Text>
+          <Text style={[type.largeTitle, s.title]} accessibilityRole="header">
+            Create your profile
+          </Text>
 
           <Text style={s.label}>Username</Text>
           <TextInput
@@ -72,6 +74,7 @@ export default function OnboardingScreen() {
             autoCapitalize="none"
             value={username}
             onChangeText={setUsername}
+            accessibilityLabel="Username"
           />
           <Text style={s.label}>Full name</Text>
           <TextInput
@@ -80,6 +83,7 @@ export default function OnboardingScreen() {
             placeholderTextColor={colors.inkTertiary}
             value={fullName}
             onChangeText={setFullName}
+            accessibilityLabel="Full name"
           />
           <Text style={s.label}>Birthday</Text>
           <TextInput
@@ -89,14 +93,27 @@ export default function OnboardingScreen() {
             keyboardType="numbers-and-punctuation"
             value={birthday}
             onChangeText={setBirthday}
+            accessibilityLabel="Birthday"
+            accessibilityHint="Format month slash day slash year"
           />
           <Text style={s.hint}>
             Your birthday shows on your chapters' calendars (year hidden).
           </Text>
 
-          {error && <Text style={s.error}>{error}</Text>}
+          {error && (
+            <Text style={s.error} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {error}
+            </Text>
+          )}
 
-          <Pressable style={[s.button, busy && { opacity: 0.6 }]} disabled={busy} onPress={submit}>
+          <Pressable
+            style={[s.button, busy && { opacity: 0.6 }]}
+            disabled={busy}
+            onPress={submit}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+            accessibilityState={{ disabled: busy, busy }}
+          >
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Done</Text>}
           </Pressable>
         </ScrollView>

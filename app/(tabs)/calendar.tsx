@@ -134,17 +134,26 @@ export default function CalendarScreen() {
         <View style={s.titleRow}>
           <ScreenTitle>Calendar</ScreenTitle>
           {membership && (
-            <Pressable style={s.addBtn} onPress={openNew}>
+            <Pressable
+              style={s.addBtn}
+              onPress={openNew}
+              hitSlop={{ top: 8, bottom: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="New event"
+            >
               <Text style={s.addBtnText}>+ Event</Text>
             </Pressable>
           )}
         </View>
 
-        <View style={s.segment}>
+        <View style={s.segment} accessibilityRole="tablist">
           {MODES.map((m) => (
             <Pressable
               key={m}
               onPress={() => setMode(m)}
+              accessibilityRole="tab"
+              accessibilityLabel={`${m} view`}
+              accessibilityState={{ selected: mode === m }}
               style={[s.segmentItem, mode === m && s.segmentItemActive]}
             >
               <Text style={[s.segmentText, mode === m && s.segmentTextActive]}>{m}</Text>
@@ -153,17 +162,31 @@ export default function CalendarScreen() {
         </View>
 
         <View style={s.periodRow}>
-          <Pressable onPress={() => shift(-1)} hitSlop={10}>
-            <Text style={s.chev}>‹</Text>
+          <Pressable
+            onPress={() => shift(-1)}
+            hitSlop={16}
+            accessibilityRole="button"
+            accessibilityLabel={`Previous ${mode.toLowerCase()}`}
+          >
+            <Text style={s.chev} accessibilityElementsHidden>
+              ‹
+            </Text>
           </Pressable>
-          <Text style={type.headline}>
+          <Text style={type.headline} accessibilityRole="header">
             {mode === 'Day' && selected.format('dddd, MMM D')}
             {mode === 'Week' &&
               `${weekStart.format('MMM D')} – ${weekStart.add(6, 'day').format('MMM D')}`}
             {mode === 'Month' && selected.format('MMMM YYYY')}
           </Text>
-          <Pressable onPress={() => shift(1)} hitSlop={10}>
-            <Text style={s.chev}>›</Text>
+          <Pressable
+            onPress={() => shift(1)}
+            hitSlop={16}
+            accessibilityRole="button"
+            accessibilityLabel={`Next ${mode.toLowerCase()}`}
+          >
+            <Text style={s.chev} accessibilityElementsHidden>
+              ›
+            </Text>
           </Pressable>
         </View>
 
@@ -181,7 +204,13 @@ export default function CalendarScreen() {
               </Text>
             </View>
             {!selected.isSame(dayjs(), 'day') && (
-              <Pressable style={s.todayBtn} onPress={() => setSelected(dayjs())}>
+              <Pressable
+                style={s.todayBtn}
+                onPress={() => setSelected(dayjs())}
+                hitSlop={{ top: 8, bottom: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Jump to today"
+              >
                 <Text style={s.todayBtnText}>Today</Text>
               </Pressable>
             )}
@@ -194,8 +223,18 @@ export default function CalendarScreen() {
               const isSelected = d.isSame(selected, 'day');
               const hasEvent = eventDays.has(d.format('YYYY-MM-DD'));
               return (
-                <Pressable key={d.format('YYYY-MM-DD')} style={s.day} onPress={() => setSelected(d)}>
-                  <Text style={type.caption}>{d.format('dd')}</Text>
+                <Pressable
+                  key={d.format('YYYY-MM-DD')}
+                  style={s.day}
+                  onPress={() => setSelected(d)}
+                  accessibilityRole="button"
+                  // The event dot is colour-only, so say it out loud.
+                  accessibilityLabel={`${d.format('dddd MMMM D')}${hasEvent ? ', has events' : ''}`}
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <Text style={type.caption} accessibilityElementsHidden>
+                    {d.format('dd')}
+                  </Text>
                   <View style={[s.dayNum, isSelected && s.dayNumActive]}>
                     <Text style={[s.dayNumText, isSelected && s.dayNumTextActive]}>{d.date()}</Text>
                   </View>
@@ -209,7 +248,12 @@ export default function CalendarScreen() {
         {mode === 'Month' && (
           <View style={s.monthGrid}>
             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
-              <Text key={i} style={[s.monthCell, type.caption, { textAlign: 'center' }]}>
+              <Text
+                key={i}
+                style={[s.monthCell, type.caption, { textAlign: 'center' }]}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
                 {d}
               </Text>
             ))}
@@ -222,6 +266,11 @@ export default function CalendarScreen() {
                   key={d.format('YYYY-MM-DD')}
                   style={s.monthCell}
                   onPress={() => setSelected(d)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${d.format('dddd MMMM D')}${hasEvent ? ', has events' : ''}${
+                    inMonth ? '' : ', outside this month'
+                  }`}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <View style={[s.monthDay, isSelected && s.dayNumActive]}>
                     <Text
@@ -254,7 +303,26 @@ export default function CalendarScreen() {
           </Card>
         )}
         {visible.map((e) => (
-          <Pressable key={e.id} onLongPress={() => confirmDelete(e)} delayLongPress={400}>
+          <Pressable
+            key={e.id}
+            onLongPress={() => confirmDelete(e)}
+            delayLongPress={400}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`${e.title}, ${dayjs(e.starts_at).format('dddd MMMM D, h:mm A')}${
+              e.location_text ? `, at ${e.location_text}` : ''
+            }${e.rrule ? ', repeats yearly' : ''}`}
+            // Long-press is unreachable under VoiceOver, so expose delete as a
+            // rotor action too (SC 2.5.1 / 2.1.1).
+            accessibilityActions={
+              isAdmin || e.created_by === userId
+                ? [{ name: 'delete', label: 'Delete event' }]
+                : undefined
+            }
+            onAccessibilityAction={(ev) => {
+              if (ev.nativeEvent.actionName === 'delete') confirmDelete(e);
+            }}
+          >
             <Card style={s.eventCard}>
               <View style={s.eventAccent} />
               {mode === 'Day' && (
@@ -284,15 +352,18 @@ export default function CalendarScreen() {
       </ScrollView>
 
       {/* New event sheet */}
-      <Sheet visible={showNew} onClose={() => setShowNew(false)}>
+      <Sheet visible={showNew} onClose={() => setShowNew(false)} label="New event">
         <View style={s.modal}>
-          <Text style={[type.title2, { marginBottom: spacing.s }]}>New event</Text>
+          <Text style={[type.title2, { marginBottom: spacing.s }]} accessibilityRole="header">
+            New event
+          </Text>
           <TextInput
             style={s.input}
             placeholder="Title"
             placeholderTextColor={colors.inkTertiary}
             value={title}
             onChangeText={setTitle}
+            accessibilityLabel="Event title"
           />
           <TextInput
             style={s.input}
@@ -300,6 +371,7 @@ export default function CalendarScreen() {
             placeholderTextColor={colors.inkTertiary}
             value={place}
             onChangeText={setPlace}
+            accessibilityLabel="Location, optional"
           />
 
           <View style={s.pickerRow}>
@@ -330,6 +402,10 @@ export default function CalendarScreen() {
                 <Pressable
                   key={r.label}
                   onPress={() => setRepeat(r.key)}
+                  hitSlop={{ top: 10, bottom: 10 }}
+                  accessibilityRole="radio"
+                  accessibilityLabel={r.label}
+                  accessibilityState={{ checked: repeat === r.key }}
                   style={[s.repeatChip, repeat === r.key && s.repeatChipOn]}
                 >
                   <Text style={[s.repeatChipText, repeat === r.key && { color: '#fff' }]}>
@@ -345,12 +421,26 @@ export default function CalendarScreen() {
             </Text>
           )}
 
-          {err && <Text style={s.err}>{err}</Text>}
+          {err && (
+            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {err}
+            </Text>
+          )}
           <View style={s.modalBtns}>
-            <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
+            <Pressable
+              style={[s.mBtn, s.mBtnGhost]}
+              onPress={() => setShowNew(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
             </Pressable>
-            <Pressable style={s.mBtn} onPress={submitNew}>
+            <Pressable
+              style={s.mBtn}
+              onPress={submitNew}
+              accessibilityRole="button"
+              accessibilityLabel="Create event"
+            >
               <Text style={s.mBtnText}>Create</Text>
             </Pressable>
           </View>

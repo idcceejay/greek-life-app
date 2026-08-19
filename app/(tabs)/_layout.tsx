@@ -8,9 +8,17 @@ import { colors } from '../../lib/theme';
  * 5-tab bar per the UI Layout PDF: Map · Chats · Home (raised center) · Calendar · Feed.
  * Icons are simple glyph placeholders until an icon set is chosen.
  */
+/**
+ * Glyphs are decorative — the tab's `title` already supplies the accessible
+ * name, so hiding them stops VoiceOver reading "black up-pointing triangle".
+ */
 function GlyphIcon({ focused, glyph }: { focused: boolean; glyph: string }) {
   return (
-    <View style={[s.icon, { backgroundColor: focused ? colors.accent : colors.separator }]}>
+    <View
+      style={[s.icon, { backgroundColor: focused ? colors.accent : colors.separator }]}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Text style={{ fontSize: 11, color: focused ? '#fff' : colors.inkSecondary }}>{glyph}</Text>
     </View>
   );
@@ -18,7 +26,11 @@ function GlyphIcon({ focused, glyph }: { focused: boolean; glyph: string }) {
 
 function HomeIcon({ focused }: { focused: boolean }) {
   return (
-    <View style={[s.homeIcon, { backgroundColor: focused ? colors.accent : colors.accentSoft }]}>
+    <View
+      style={[s.homeIcon, { backgroundColor: focused ? colors.accent : colors.accentSoft }]}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <View style={[s.homeDot, { backgroundColor: focused ? '#fff' : colors.accent }]} />
     </View>
   );

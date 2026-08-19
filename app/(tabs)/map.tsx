@@ -87,8 +87,18 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.headerRow}>
-        <Text style={type.largeTitle}>Map</Text>
-        <Pressable onPress={toggleGhost} style={[s.ghostBtn, ghost && s.ghostBtnOn]}>
+        <Text style={type.largeTitle} accessibilityRole="header">
+          Map
+        </Text>
+        <Pressable
+          onPress={toggleGhost}
+          style={[s.ghostBtn, ghost && s.ghostBtnOn]}
+          hitSlop={{ top: 8, bottom: 8 }}
+          accessibilityRole="switch"
+          accessibilityLabel="Ghost mode"
+          accessibilityHint="Hides your location from other members"
+          accessibilityState={{ checked: ghost }}
+        >
           <Text style={[s.ghostText, ghost && { color: '#fff' }]}>
             {ghost ? 'Ghost on' : 'Ghost off'}
           </Text>
@@ -152,12 +162,29 @@ export default function MapScreen() {
       <View style={s.sheet}>
         <View style={s.grabber} />
         <View style={s.sheetHeader}>
-          <Text style={type.title2}>Nearby</Text>
-          <Pressable style={s.checkinBtn} onPress={checkIn}>
+          <Text style={type.title2} accessibilityRole="header">
+            Nearby
+          </Text>
+          <Pressable
+            style={s.checkinBtn}
+            onPress={checkIn}
+            hitSlop={{ top: 8, bottom: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Check in"
+            accessibilityHint="Checks you in to a nearby event using your location"
+          >
             <Text style={s.checkinText}>Check in</Text>
           </Pressable>
         </View>
-        {checkinMsg && <Text style={s.checkinMsg}>{checkinMsg}</Text>}
+        {checkinMsg && (
+          <Text
+            style={s.checkinMsg}
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+          >
+            {checkinMsg}
+          </Text>
+        )}
         <FlatList
           data={others}
           keyExtractor={(p) => p.user_id}
@@ -171,7 +198,13 @@ export default function MapScreen() {
               .slice(0, 2)
               .toUpperCase();
             return (
-              <View style={s.row}>
+              <View
+                style={s.row}
+                accessible
+                accessibilityLabel={`${item.full_name ?? item.username}, ${
+                  item.place_label ?? 'on the map'
+                }${dist !== null ? `, ${dist.toFixed(1)} miles away` : ''}`}
+              >
                 <Avatar initials={initials} />
                 <View style={s.rowBody}>
                   <Text style={type.headline}>{item.full_name ?? item.username}</Text>

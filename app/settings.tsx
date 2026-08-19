@@ -103,7 +103,9 @@ export default function SettingsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={s.back}>‹ Back</Text>
         </Pressable>
-        <Text style={type.headline}>Settings</Text>
+        <Text style={type.headline} accessibilityRole="header">
+          Settings
+        </Text>
         <View style={{ width: 64 }} />
       </View>
 
@@ -129,29 +131,54 @@ export default function SettingsScreen() {
             </View>
           </View>
           <Text style={s.label}>Name</Text>
-          <TextInput style={s.input} value={name} onChangeText={setName} />
+          <TextInput
+            style={s.input}
+            value={name}
+            onChangeText={setName}
+            accessibilityLabel="Full name"
+          />
           <Text style={s.label}>Username</Text>
           <TextInput
             style={s.input}
             value={username}
             autoCapitalize="none"
             onChangeText={setUsername}
+            accessibilityLabel="Username"
           />
-          {err && <Text style={s.err}>{err}</Text>}
-          <Pressable style={s.saveBtn} onPress={saveProfile}>
-            <Text style={s.saveBtnText}>{saved ? 'Saved ✓' : 'Save changes'}</Text>
+          {err && (
+            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {err}
+            </Text>
+          )}
+          <Pressable
+            style={s.saveBtn}
+            onPress={saveProfile}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? 'Saved' : 'Save changes'}
+          >
+            <Text style={s.saveBtnText} accessibilityLiveRegion="polite">
+              {saved ? 'Saved ✓' : 'Save changes'}
+            </Text>
           </Pressable>
         </Card>
 
         {/* Privacy */}
         <Card style={s.card}>
-          <Text style={type.headline}>Privacy</Text>
+          <Text style={type.headline} accessibilityRole="header">
+            Privacy
+          </Text>
           <View style={s.switchRow}>
             <View style={{ flex: 1 }}>
               <Text style={type.body}>Ghost mode</Text>
               <Text style={type.caption}>Hide your location from everyone, instantly.</Text>
             </View>
-            <Switch value={ghost} onValueChange={toggleGhost} trackColor={{ true: colors.accent }} />
+            <Switch
+              value={ghost}
+              onValueChange={toggleGhost}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="Ghost mode"
+              accessibilityHint="Hides your location from everyone"
+            />
           </View>
           <Text style={type.caption}>
             Location is shared only while the app is open, only with members of your organization,
@@ -161,14 +188,21 @@ export default function SettingsScreen() {
 
         {/* Blocked users */}
         <Card style={s.card}>
-          <Text style={type.headline}>Blocked people</Text>
+          <Text style={type.headline} accessibilityRole="header">
+            Blocked people
+          </Text>
           {blocked.length === 0 && (
             <Text style={type.subhead}>You haven't blocked anyone.</Text>
           )}
           {blocked.map((u) => (
             <View key={u.id} style={s.blockedRow}>
               <Text style={type.body}>{u.full_name ?? u.username}</Text>
-              <Pressable onPress={() => doUnblock(u)}>
+              <Pressable
+                onPress={() => doUnblock(u)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Unblock ${u.full_name ?? u.username}`}
+              >
                 <Text style={s.link}>Unblock</Text>
               </Pressable>
             </View>
@@ -180,11 +214,25 @@ export default function SettingsScreen() {
 
         {/* Support & legal */}
         <Card style={s.card}>
-          <Text style={type.headline}>Support</Text>
-          <Pressable onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}>
+          <Text style={type.headline} accessibilityRole="header">
+            Support
+          </Text>
+          <Pressable
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+            hitSlop={{ top: 12, bottom: 12 }}
+            accessibilityRole="link"
+            accessibilityLabel="Contact support"
+            accessibilityHint="Opens your email app"
+          >
             <Text style={s.link}>Contact support</Text>
           </Pressable>
-          <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
+          <Pressable
+            onPress={() => Linking.openURL(PRIVACY_URL)}
+            hitSlop={{ top: 12, bottom: 12 }}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+            accessibilityHint="Opens in your browser"
+          >
             <Text style={s.link}>Privacy Policy</Text>
           </Pressable>
           <Text style={type.caption}>
@@ -195,7 +243,9 @@ export default function SettingsScreen() {
 
         {/* Account */}
         <Card style={s.card}>
-          <Text style={type.headline}>Account</Text>
+          <Text style={type.headline} accessibilityRole="header">
+            Account
+          </Text>
           <Pressable
             onPress={() =>
               Alert.alert('Sign out?', '', [
@@ -203,19 +253,30 @@ export default function SettingsScreen() {
                 { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
               ])
             }
+            hitSlop={{ top: 12, bottom: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
           >
             <Text style={s.link}>Sign out</Text>
           </Pressable>
-          <Pressable onPress={() => setShowDelete(true)}>
+          <Pressable
+            onPress={() => setShowDelete(true)}
+            hitSlop={{ top: 12, bottom: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Delete my account"
+            accessibilityHint="Permanently removes your profile and content"
+          >
             <Text style={[s.link, { color: colors.danger }]}>Delete my account</Text>
           </Pressable>
         </Card>
       </ScrollView>
 
       {/* Delete account confirmation */}
-      <Sheet visible={showDelete} onClose={() => setShowDelete(false)}>
+      <Sheet visible={showDelete} onClose={() => setShowDelete(false)} label="Delete account">
         <View style={s.sheet}>
-          <Text style={[type.title2, { color: colors.danger }]}>Delete account</Text>
+          <Text style={[type.title2, { color: colors.danger }]} accessibilityRole="header">
+            Delete account
+          </Text>
           <Text style={type.subhead}>
             This permanently deletes your profile, memberships, posts, and messages. It cannot be
             undone.
@@ -228,9 +289,16 @@ export default function SettingsScreen() {
             autoCapitalize="characters"
             placeholder="DELETE"
             placeholderTextColor={colors.inkTertiary}
+            accessibilityLabel="Confirmation"
+            accessibilityHint="Type the word DELETE in capitals to enable the delete button"
           />
           <View style={s.sheetBtns}>
-            <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowDelete(false)}>
+            <Pressable
+              style={[s.mBtn, s.mBtnGhost]}
+              onPress={() => setShowDelete(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
             </Pressable>
             <Pressable
@@ -241,6 +309,18 @@ export default function SettingsScreen() {
               ]}
               disabled={confirmText.trim().toUpperCase() !== 'DELETE' || deleting}
               onPress={doDelete}
+              accessibilityRole="button"
+              accessibilityLabel="Delete forever"
+              // Dimming alone doesn't tell VoiceOver the button is unavailable.
+              accessibilityHint={
+                confirmText.trim().toUpperCase() !== 'DELETE'
+                  ? 'Type DELETE in the field above to enable this'
+                  : undefined
+              }
+              accessibilityState={{
+                disabled: confirmText.trim().toUpperCase() !== 'DELETE' || deleting,
+                busy: deleting,
+              }}
             >
               <Text style={s.mBtnText}>{deleting ? 'Deleting…' : 'Delete forever'}</Text>
             </Pressable>

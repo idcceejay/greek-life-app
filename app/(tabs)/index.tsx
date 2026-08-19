@@ -104,7 +104,13 @@ export default function HomeScreen() {
               {membership?.org.name ?? (profile?.full_name?.split(' ')[0] ?? 'Home')}
             </Text>
           </View>
-          <Pressable onPress={onAvatar}>
+          <Pressable
+            onPress={onAvatar}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Your profile"
+            accessibilityHint="Opens settings"
+          >
             <Avatar initials={initials} size={40} />
           </Pressable>
         </View>

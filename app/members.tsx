@@ -114,10 +114,17 @@ export default function MembersScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
           <Text style={s.back}>Back</Text>
         </Pressable>
-        <Text style={type.headline}>Members</Text>
+        <Text style={type.headline} accessibilityRole="header">
+          Members
+        </Text>
         <View style={{ width: 64 }} />
       </View>
 
@@ -137,8 +144,15 @@ export default function MembersScreen() {
 
         {error && (
           <Card style={s.card}>
-            <Text style={s.err}>{error}</Text>
-            <Pressable onPress={refresh}>
+            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {error}
+            </Text>
+            <Pressable
+              onPress={refresh}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Try again"
+            >
               <Text style={s.link}>Try again</Text>
             </Pressable>
           </Card>
@@ -158,13 +172,27 @@ export default function MembersScreen() {
                   <Text style={type.caption}>asked {dayjs(m.joinedAt).fromNow()}</Text>
                 </View>
                 {busyId === m.id ? (
-                  <ActivityIndicator color={colors.accent} />
+                  <ActivityIndicator
+                    color={colors.accent}
+                    accessibilityLabel={`Updating ${displayName(m)}`}
+                  />
                 ) : (
                   <View style={s.actions}>
-                    <Pressable style={s.approve} onPress={() => onApprove(m)}>
+                    <Pressable
+                      style={s.approve}
+                      onPress={() => onApprove(m)}
+                      hitSlop={{ top: 8, bottom: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Approve ${displayName(m)}`}
+                    >
                       <Text style={s.approveText}>Approve</Text>
                     </Pressable>
-                    <Pressable onPress={() => onDecline(m)}>
+                    <Pressable
+                      onPress={() => onDecline(m)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Decline ${displayName(m)}`}
+                    >
                       <Text style={s.decline}>Decline</Text>
                     </Pressable>
                   </View>
@@ -196,6 +224,11 @@ export default function MembersScreen() {
                 style={s.row}
                 disabled={!isAdmin}
                 onPress={() => setSelected(m)}
+                accessibilityRole={isAdmin ? 'button' : 'text'}
+                accessibilityLabel={`${displayName(m)}, ${ROLE_LABEL[m.role]}${
+                  m.userId === userId ? ', you' : ''
+                }`}
+                accessibilityHint={isAdmin ? 'Change role or remove from chapter' : undefined}
               >
                 <Avatar initials={initials(m)} />
                 <View style={s.grow}>
@@ -205,7 +238,11 @@ export default function MembersScreen() {
                     {m.userId === userId ? ' · you' : ''}
                   </Text>
                 </View>
-                {isAdmin && <Text style={s.chevron}>›</Text>}
+                {isAdmin && (
+                  <Text style={s.chevron} accessibilityElementsHidden>
+                    ›
+                  </Text>
+                )}
               </Pressable>
             ))}
           </Card>
@@ -220,13 +257,20 @@ export default function MembersScreen() {
                 style={s.row}
                 disabled={!isAdmin}
                 onPress={() => setSelected(m)}
+                accessibilityRole={isAdmin ? 'button' : 'text'}
+                accessibilityLabel={`${displayName(m)}, alumni`}
+                accessibilityHint={isAdmin ? 'Change role or remove from chapter' : undefined}
               >
                 <Avatar initials={initials(m)} />
                 <View style={s.grow}>
                   <Text style={type.body}>{displayName(m)}</Text>
                   <Text style={type.caption}>Alumni</Text>
                 </View>
-                {isAdmin && <Text style={s.chevron}>›</Text>}
+                {isAdmin && (
+                  <Text style={s.chevron} accessibilityElementsHidden>
+                    ›
+                  </Text>
+                )}
               </Pressable>
             ))}
           </Card>
@@ -238,11 +282,17 @@ export default function MembersScreen() {
       </ScrollView>
 
       {/* Role + remove sheet */}
-      <Sheet visible={!!selected} onClose={() => setSelected(null)}>
+      <Sheet
+        visible={!!selected}
+        onClose={() => setSelected(null)}
+        label={selected ? displayName(selected) : undefined}
+      >
         <View style={s.sheet}>
           {selected && (
             <>
-              <Text style={type.title2}>{displayName(selected)}</Text>
+              <Text style={type.title2} accessibilityRole="header">
+                {displayName(selected)}
+              </Text>
               <Text style={type.caption}>
                 Joined {dayjs(selected.joinedAt).format('MMM D, YYYY')}
               </Text>
@@ -255,17 +305,29 @@ export default function MembersScreen() {
                     key={r.key}
                     style={[s.roleRow, on && s.roleRowOn]}
                     onPress={() => (on ? undefined : onRole(selected, r.key))}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${r.label}. ${r.blurb}`}
+                    accessibilityState={{ checked: on }}
                   >
                     <View style={s.grow}>
                       <Text style={type.body}>{r.label}</Text>
                       <Text style={type.caption}>{r.blurb}</Text>
                     </View>
-                    {on && <Text style={s.check}>✓</Text>}
+                    {on && (
+                      <Text style={s.check} accessibilityElementsHidden>
+                        ✓
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
 
-              <Pressable style={s.removeBtn} onPress={() => onRemove(selected)}>
+              <Pressable
+                style={s.removeBtn}
+                onPress={() => onRemove(selected)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${displayName(selected)} from chapter`}
+              >
                 <Text style={s.removeText}>Remove from chapter</Text>
               </Pressable>
 

@@ -65,7 +65,7 @@ export default function SignInScreen() {
       >
         <View style={s.body}>
           <Text style={type.eyebrow}>Rally</Text>
-          <Text style={[type.largeTitle, s.title]}>
+          <Text style={[type.largeTitle, s.title]} accessibilityRole="header">
             {stage === 'email' ? 'Sign in' : 'Check your email'}
           </Text>
           <Text style={[type.subhead, s.sub]}>
@@ -85,6 +85,8 @@ export default function SignInScreen() {
               value={email}
               onChangeText={setEmail}
               onSubmitEditing={sendCode}
+              accessibilityLabel="Email address"
+              accessibilityHint="Use your school .edu address for full access"
             />
           ) : (
             <TextInput
@@ -96,15 +98,27 @@ export default function SignInScreen() {
               value={code}
               onChangeText={setCode}
               onSubmitEditing={verify}
+              // Lets iOS offer the code from the Messages/Mail banner.
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+              accessibilityLabel="Sign-in code"
+              accessibilityHint="The 8-digit code we emailed you"
             />
           )}
 
-          {error && <Text style={s.error}>{error}</Text>}
+          {error && (
+            <Text style={s.error} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {error}
+            </Text>
+          )}
 
           <Pressable
             style={[s.button, busy && { opacity: 0.6 }]}
             disabled={busy}
             onPress={stage === 'email' ? sendCode : verify}
+            accessibilityRole="button"
+            accessibilityLabel={stage === 'email' ? 'Send code' : 'Verify'}
+            accessibilityState={{ disabled: busy, busy }}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
@@ -114,7 +128,12 @@ export default function SignInScreen() {
           </Pressable>
 
           {stage === 'code' && (
-            <Pressable onPress={() => setStage('email')} hitSlop={8}>
+            <Pressable
+              onPress={() => setStage('email')}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              accessibilityRole="button"
+              accessibilityLabel="Use a different email"
+            >
               <Text style={s.link}>Use a different email</Text>
             </Pressable>
           )}

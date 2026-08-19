@@ -157,7 +157,9 @@ export default function DuesScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={s.back}>‹ Back</Text>
         </Pressable>
-        <Text style={type.headline}>Dues</Text>
+        <Text style={type.headline} accessibilityRole="header">
+          Dues
+        </Text>
         <View style={{ width: 64 }} />
       </View>
 
@@ -168,6 +170,9 @@ export default function DuesScreen() {
               <Pressable
                 key={t}
                 onPress={() => setTab(t)}
+                accessibilityRole="tab"
+                accessibilityLabel={t === 'mine' ? 'What I owe' : 'Chapter'}
+                accessibilityState={{ selected: tab === t }}
                 style={[s.segmentItem, tab === t && s.segmentItemActive]}
               >
                 <Text style={[s.segmentText, tab === t && s.segmentTextActive]}>
@@ -218,7 +223,9 @@ export default function DuesScreen() {
                 <Card key={c.id} style={s.card}>
                   <View style={s.rowBetween}>
                     <Text style={type.headline}>{c.description ?? 'Charge'}</Text>
-                    <Text style={s.amount}>{money(remaining)}</Text>
+                    <Text style={s.amount} accessibilityLabel={`${money(remaining)} remaining`}>
+                      {money(remaining)}
+                    </Text>
                   </View>
                   <Text style={type.caption}>
                     {c.org_name}
@@ -231,6 +238,7 @@ export default function DuesScreen() {
                     ) : c.status === 'waived' ? (
                       <Pill label="Waived" />
                     ) : overdue ? (
+                      // Red pill + the word "Overdue" — never colour alone.
                       <View style={[s.badge, { backgroundColor: '#FFE8E6' }]}>
                         <Text style={[s.badgeText, { color: colors.danger }]}>Overdue</Text>
                       </View>
@@ -242,6 +250,11 @@ export default function DuesScreen() {
                         style={[s.payBtn, busy === c.id && { opacity: 0.6 }]}
                         disabled={busy === c.id}
                         onPress={() => pay(c)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Pay ${money(remaining)} for ${
+                          c.description ?? 'this charge'
+                        }`}
+                        accessibilityState={{ disabled: busy === c.id, busy: busy === c.id }}
                       >
                         {busy === c.id ? (
                           <ActivityIndicator color="#fff" size="small" />
@@ -273,6 +286,9 @@ export default function DuesScreen() {
                   style={[s.primaryBtn, busy === 'stripe' && { opacity: 0.6 }]}
                   disabled={busy === 'stripe'}
                   onPress={connectStripe}
+                  accessibilityRole="button"
+                  accessibilityLabel={stripe.connected ? 'Continue setup' : 'Connect Stripe'}
+                  accessibilityState={{ disabled: busy === 'stripe', busy: busy === 'stripe' }}
                 >
                   <Text style={s.primaryBtnText}>
                     {stripe.connected ? 'Continue setup' : 'Connect Stripe'}
@@ -292,11 +308,19 @@ export default function DuesScreen() {
               </Card>
             </View>
 
-            <Pressable style={s.primaryBtn} onPress={() => setShowNew(true)}>
+            <Pressable
+              style={s.primaryBtn}
+              onPress={() => setShowNew(true)}
+              accessibilityRole="button"
+              accessibilityLabel="New dues cycle"
+            >
               <Text style={s.primaryBtnText}>+ New dues cycle</Text>
             </Pressable>
 
-            <Text style={[type.caption, { marginTop: spacing.l, marginBottom: spacing.s }]}>
+            <Text
+              style={[type.caption, { marginTop: spacing.l, marginBottom: spacing.s }]}
+              accessibilityRole="header"
+            >
               WHO OWES
             </Text>
             {members.length === 0 && (
@@ -305,7 +329,15 @@ export default function DuesScreen() {
               </Card>
             )}
             {members.map((m) => (
-              <Pressable key={m.user_id} onPress={() => setOpenMember(m)}>
+              <Pressable
+                key={m.user_id}
+                onPress={() => setOpenMember(m)}
+                accessibilityRole="button"
+                accessibilityLabel={`${m.full_name ?? m.username}, owes ${money(
+                  m.owed_cents,
+                )}, ${m.paid_cents > 0 ? `${money(m.paid_cents)} paid` : 'nothing paid yet'}`}
+                accessibilityHint="Opens their charges"
+              >
                 <Card style={[s.card, s.memberRow]}>
                   <Avatar
                     initials={(m.full_name ?? m.username ?? '?')
@@ -338,9 +370,11 @@ export default function DuesScreen() {
       </ScrollView>
 
       {/* New dues cycle */}
-      <Sheet visible={showNew} onClose={() => setShowNew(false)}>
+      <Sheet visible={showNew} onClose={() => setShowNew(false)} label="New dues cycle">
         <View style={s.sheet}>
-          <Text style={[type.title2, { marginBottom: spacing.xs }]}>New dues cycle</Text>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]} accessibilityRole="header">
+            New dues cycle
+          </Text>
           <Text style={type.caption}>
             Creates one charge for every active member in your chapter.
           </Text>
@@ -350,6 +384,7 @@ export default function DuesScreen() {
             placeholderTextColor={colors.inkTertiary}
             value={name}
             onChangeText={setName}
+            accessibilityLabel="Dues cycle name"
           />
           <TextInput
             style={s.input}
@@ -358,6 +393,7 @@ export default function DuesScreen() {
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={setAmount}
+            accessibilityLabel="Amount per member in dollars"
           />
           <TextInput
             style={s.input}
@@ -366,13 +402,29 @@ export default function DuesScreen() {
             keyboardType="numbers-and-punctuation"
             value={due}
             onChangeText={setDue}
+            accessibilityLabel="Due date, optional"
+            accessibilityHint="Format month slash day slash year"
           />
-          {err && <Text style={s.err}>{err}</Text>}
+          {err && (
+            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {err}
+            </Text>
+          )}
           <View style={s.sheetBtns}>
-            <Pressable style={[s.mBtn, s.mBtnGhost]} onPress={() => setShowNew(false)}>
+            <Pressable
+              style={[s.mBtn, s.mBtnGhost]}
+              onPress={() => setShowNew(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={[s.mBtnText, { color: colors.ink }]}>Cancel</Text>
             </Pressable>
-            <Pressable style={s.mBtn} onPress={submitCycle}>
+            <Pressable
+              style={s.mBtn}
+              onPress={submitCycle}
+              accessibilityRole="button"
+              accessibilityLabel="Bill members"
+            >
               <Text style={s.mBtnText}>Bill members</Text>
             </Pressable>
           </View>
@@ -380,9 +432,13 @@ export default function DuesScreen() {
       </Sheet>
 
       {/* Member drill-down */}
-      <Sheet visible={!!openMember} onClose={() => setOpenMember(null)}>
+      <Sheet
+        visible={!!openMember}
+        onClose={() => setOpenMember(null)}
+        label={openMember?.full_name ?? openMember?.username ?? undefined}
+      >
         <View style={s.sheet}>
-          <Text style={[type.title2, { marginBottom: spacing.xs }]}>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]} accessibilityRole="header">
             {openMember?.full_name ?? openMember?.username}
           </Text>
           <Text style={type.caption}>
@@ -398,14 +454,26 @@ export default function DuesScreen() {
                 </Text>
               </View>
               {(c.status === 'unpaid' || c.status === 'partial') && (
-                <Pressable onPress={() => markPaid(c.id, c.amount_cents)}>
+                <Pressable
+                  onPress={() => markPaid(c.id, c.amount_cents)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mark ${c.description ?? 'charge'} of ${money(
+                    c.amount_cents,
+                  )} as paid`}
+                >
                   <Text style={s.link}>Mark paid</Text>
                 </Pressable>
               )}
             </View>
           ))}
           {memberCharges.length === 0 && <Text style={type.subhead}>No charges.</Text>}
-          <Pressable style={s.doneBtn} onPress={() => setOpenMember(null)}>
+          <Pressable
+            style={s.doneBtn}
+            onPress={() => setOpenMember(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+          >
             <Text style={s.mBtnText}>Done</Text>
           </Pressable>
         </View>

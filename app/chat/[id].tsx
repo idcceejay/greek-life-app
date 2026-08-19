@@ -129,7 +129,12 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
           <Text style={s.back}>‹ Back</Text>
         </Pressable>
         <View style={s.headerCenter}>
@@ -142,9 +147,17 @@ export default function ChatScreen() {
               .toUpperCase()}
             size={32}
           />
-          <Text style={type.headline}>{chatName}</Text>
+          <Text style={type.headline} accessibilityRole="header">
+            {chatName}
+          </Text>
         </View>
-        <Pressable onPress={openInvite} hitSlop={10} style={s.headerSpacer}>
+        <Pressable
+          onPress={openInvite}
+          hitSlop={12}
+          style={s.headerSpacer}
+          accessibilityRole="button"
+          accessibilityLabel="Invite people"
+        >
           <Text style={s.inviteLink}>Invite</Text>
         </Pressable>
       </View>
@@ -166,6 +179,18 @@ export default function ChatScreen() {
               style={[s.bubbleRow, item.mine && s.bubbleRowMine]}
               onLongPress={() => !item.mine && setReportOn(item)}
               delayLongPress={400}
+              accessible
+              // Left/right alignment is the only cue for who sent it — say it.
+              accessibilityLabel={`${
+                item.mine ? 'You' : item.sender_name ?? 'They'
+              } said, ${item.body}, at ${dayjs(item.created_at).format('h:mm A')}`}
+              // Reporting is long-press only, which VoiceOver cannot perform.
+              accessibilityActions={
+                item.mine ? undefined : [{ name: 'report', label: 'Report or block' }]
+              }
+              onAccessibilityAction={(ev) => {
+                if (ev.nativeEvent.actionName === 'report') setReportOn(item);
+              }}
             >
               <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubbleTheirs]}>
                 {!item.mine && item.sender_name && <Text style={s.sender}>{item.sender_name}</Text>}
@@ -177,7 +202,11 @@ export default function ChatScreen() {
             </Pressable>
           )}
         />
-        {modMsg && <Text style={s.modBanner}>{modMsg}</Text>}
+        {modMsg && (
+          <Text style={s.modBanner} accessibilityLiveRegion="polite" accessibilityRole="alert">
+            {modMsg}
+          </Text>
+        )}
         <View style={s.composer}>
           <TextInput
             style={s.input}
@@ -187,17 +216,28 @@ export default function ChatScreen() {
             onChangeText={setDraft}
             onSubmitEditing={submit}
             returnKeyType="send"
+            accessibilityLabel="Message"
           />
-          <Pressable style={s.sendBtn} onPress={submit}>
-            <Text style={s.sendText}>↑</Text>
+          <Pressable
+            style={s.sendBtn}
+            onPress={submit}
+            accessibilityRole="button"
+            accessibilityLabel="Send"
+            accessibilityState={{ disabled: !draft.trim() }}
+          >
+            <Text style={s.sendText} accessibilityElementsHidden>
+              ↑
+            </Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
 
       {/* Invite / add members */}
-      <Sheet visible={showInvite} onClose={() => setShowInvite(false)}>
+      <Sheet visible={showInvite} onClose={() => setShowInvite(false)} label="Add people">
         <View style={s.sheet}>
-          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Add people</Text>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]} accessibilityRole="header">
+            Add people
+          </Text>
 
           <Text style={type.caption}>Share this invite code</Text>
           <Pressable
@@ -207,9 +247,18 @@ export default function ChatScreen() {
               await Clipboard.setStringAsync(token);
               setCopied(true);
             }}
+            accessibilityRole="button"
+            // Spell the code out — VoiceOver runs the characters together otherwise.
+            accessibilityLabel={
+              token ? `Invite code ${token.split('').join(' ')}` : 'Invite code loading'
+            }
+            accessibilityHint="Copies the code to your clipboard"
+            accessibilityState={{ disabled: !token }}
           >
             <Text style={s.codeText}>{token ?? '…'}</Text>
-            <Text style={s.copyHint}>{copied ? 'Copied ✓' : 'Tap to copy'}</Text>
+            <Text style={s.copyHint} accessibilityLiveRegion="polite">
+              {copied ? 'Copied ✓' : 'Tap to copy'}
+            </Text>
           </Pressable>
           <Text style={type.caption}>
             They tap “Join code” on the Chats tab and paste it. Expires in 30 days.
@@ -223,46 +272,86 @@ export default function ChatScreen() {
             autoCapitalize="none"
             value={q}
             onChangeText={runSearch}
+            accessibilityLabel="Search by name or username"
           />
-          {hits.map((u) => (
-            <Pressable key={u.id} style={s.hitRow} onPress={() => addMember(u)}>
-              <View>
-                <Text style={type.headline}>{u.full_name ?? u.username}</Text>
-                <Text style={type.caption}>@{u.username}</Text>
-              </View>
-              <Text style={s.addLink}>
-                {u.username && added.includes(u.username) ? 'Added ✓' : 'Add'}
-              </Text>
-            </Pressable>
-          ))}
+          {hits.map((u) => {
+            const isAdded = !!u.username && added.includes(u.username);
+            return (
+              <Pressable
+                key={u.id}
+                style={s.hitRow}
+                onPress={() => addMember(u)}
+                accessibilityRole="button"
+                accessibilityLabel={`${u.full_name ?? u.username}, @${u.username}`}
+                accessibilityHint={isAdded ? undefined : 'Adds them to this chat'}
+                accessibilityState={{ disabled: isAdded }}
+              >
+                <View>
+                  <Text style={type.headline}>{u.full_name ?? u.username}</Text>
+                  <Text style={type.caption}>@{u.username}</Text>
+                </View>
+                <Text style={s.addLink}>{isAdded ? 'Added ✓' : 'Add'}</Text>
+              </Pressable>
+            );
+          })}
           {q.trim().length >= 2 && hits.length === 0 && (
             <Text style={type.subhead}>No one found on your campus.</Text>
           )}
 
-          {inviteErr && <Text style={s.err}>{inviteErr}</Text>}
-          <Pressable style={s.doneBtn} onPress={() => setShowInvite(false)}>
+          {inviteErr && (
+            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
+              {inviteErr}
+            </Text>
+          )}
+          <Pressable
+            style={s.doneBtn}
+            onPress={() => setShowInvite(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+          >
             <Text style={s.doneBtnText}>Done</Text>
           </Pressable>
         </View>
       </Sheet>
 
       {/* Report / block a message */}
-      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)}>
+      <Sheet visible={!!reportOn} onClose={() => setReportOn(null)} label="Report message">
         <View style={s.sheet}>
-          <Text style={[type.title2, { marginBottom: spacing.xs }]}>Report message</Text>
+          <Text style={[type.title2, { marginBottom: spacing.xs }]} accessibilityRole="header">
+            Report message
+          </Text>
           <Text style={type.caption}>Reviewed within 24 hours.</Text>
           {REPORT_REASONS.map((r) => (
-            <Pressable key={r.key} style={s.hitRow} onPress={() => submitReport(r.key)}>
+            <Pressable
+              key={r.key}
+              style={s.hitRow}
+              onPress={() => submitReport(r.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`Report for ${r.label}`}
+            >
               <Text style={type.body}>{r.label}</Text>
-              <Text style={s.addLink}>›</Text>
+              <Text style={s.addLink} accessibilityElementsHidden>
+                ›
+              </Text>
             </Pressable>
           ))}
-          <Pressable style={s.hitRow} onPress={doBlockSender}>
+          <Pressable
+            style={s.hitRow}
+            onPress={doBlockSender}
+            accessibilityRole="button"
+            accessibilityLabel={`Block ${reportOn?.sender_name ?? 'this person'}`}
+            accessibilityHint="You will no longer see their posts or messages"
+          >
             <Text style={[type.body, { color: colors.danger, fontWeight: '600' }]}>
               Block {reportOn?.sender_name ?? 'this person'}
             </Text>
           </Pressable>
-          <Pressable style={s.doneBtn} onPress={() => setReportOn(null)}>
+          <Pressable
+            style={s.doneBtn}
+            onPress={() => setReportOn(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+          >
             <Text style={s.doneBtnText}>Cancel</Text>
           </Pressable>
         </View>
