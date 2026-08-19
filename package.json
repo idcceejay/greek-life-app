@@ -22,10 +22,17 @@
     "react-native-screens": "~4.16.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2"
+    "jsdom": "^30.0.1",
+    "react-dom": "19.1.0",
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.7"
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
