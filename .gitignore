@@ -48,3 +48,6 @@ yarn-error.*
 
 # generated setup log
 _setup-report.txt
+
+# Python cache from .claude/skills scripts
+__pycache__/
