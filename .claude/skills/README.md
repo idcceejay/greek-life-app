@@ -64,6 +64,27 @@ The repo has **zero tests, no linter, no formatter, and no CI.** These four addr
 | `make-interfaces-feel-better` | Polish passes | Spacing, type, shadows, borders. The gap between "works" and "feels Apple." |
 | `documentation-lookup` | Setup and API questions | Pulls live docs via Context7 instead of training data. **High value given the SDK 54 pin** - models default to newer Expo APIs that will break your build. |
 
+### Front-end design - added 10/01/2026
+
+Not from ECC. Each SKILL.md opens with a "Rally notes" block that maps the skill's
+web-first advice onto React Native and keeps `lib/theme.ts` as the source of truth.
+
+| Skill | Fires when | Why for Rally |
+|---|---|---|
+| `ui-ux-pro-max` | Designing, building or reviewing any screen | Searchable local database (UX rules, palettes, type, icons, a React Native stack set) plus a native-app pre-delivery checklist in `references/pro-rules.md`. Python 3 scripts, standard library only, no network. Run as `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --stack react-native`. |
+| `frontend-design` | New screens or a visual rework | Anthropic's guidance on making deliberate, non-templated visual choices and on interface copy (button labels, empty states, errors). |
+
+Sources: `nextlevelbuilder/ui-ux-pro-max-skill` @ `09170ee` (MIT, `LICENSE` copied in;
+its `scripts/tests/` left out) and `anthropics/claude-code`
+`plugins/frontend-design/skills/frontend-design/SKILL.md` @ `main`. Changes from upstream: script
+paths repointed from `${CLAUDE_PLUGIN_ROOT}` to the repo path with `python3`, the Rally notes
+blocks, and frontend-design's license line (upstream points at a LICENSE.txt that doesn't exist).
+
+The ui-ux-pro-max repo also ships `ui-styling` (shadcn/Tailwind - web only), `design-system`
+(CSS variables; also clashes with the ECC skill of the same name above), and `design`,
+`brand`, `banner-design`, `slides` (logos, marketing assets, decks - some need Gemini API
+keys). None of those build app screens, so they're not installed.
+
 ## Deliberately excluded
 
 - **`liquid-glass-design`** - iOS 26 Liquid Glass, but SwiftUI/UIKit only. Useless in React Native despite the HIG fit.
