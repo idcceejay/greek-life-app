@@ -421,7 +421,7 @@ export default function CalendarScreen() {
             onChangeText={setTitle}
             accessibilityLabel="Event title"
           />
-          <View style={s.repeatChips}>
+          <View style={s.titleChips}>
             {TITLE_PICKS.map((t) => (
               <Pressable
                 key={t}
@@ -430,7 +430,7 @@ export default function CalendarScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Use title ${t}`}
                 accessibilityState={{ selected: title === t }}
-                style={[s.repeatChip, title === t && s.repeatChipOn]}
+                style={[s.repeatChip, s.titleChip, title === t && s.repeatChipOn]}
               >
                 <Text style={[s.repeatChipText, title === t && { color: '#fff' }]}>{t}</Text>
               </Pressable>
@@ -640,6 +640,10 @@ const s = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   repeatChipOn: { backgroundColor: colors.accent },
+  // Title quick-picks sit on the canvas-coloured sheet, so they need the white
+  // card fill to read as buttons, and must wrap rather than run off-screen.
+  titleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
+  titleChip: { backgroundColor: colors.card, minHeight: 36, justifyContent: 'center' },
   repeatChipText: { fontSize: 14, fontWeight: '600', color: colors.ink },
   err: { color: colors.danger, fontSize: 14 },
   modalBtns: { flexDirection: 'row', gap: spacing.m, marginTop: spacing.s },
