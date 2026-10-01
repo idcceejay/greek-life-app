@@ -29,7 +29,7 @@ The roadmap (`Road-to-App-Store.md`) is the launch plan. This file is the index 
 | S4 | 🔴 THIS | TestFlight shows No Builds; no EAS build has ever reached Apple | 🔴 CRITICAL | 🟢 Medium | 🔴 Critical | 🟠 Excellent | 🟢 2–5 | Medium | `@status:open` Pipeline never exercised end to end | Ceejay |
 | S5 | 🔴 THIS | Terms of Use not linked in-app; Guideline 1.2 needs terms users agree to | 🟡 HIGH | ⚪ Low | 🔴 Critical | 🟠 Excellent | ⚪ 1 file | Small | `@status:open` settings.tsx links only a privacy URL | TJ |
 | S6 | 🔴 THIS | Pricing, Availability and Content Rights still unset in App Store Connect | 🟢 MEDIUM | ⚪ Low | 🟡 High | 🟠 Excellent | ⚪ 1 file | Trivial | `@status:open` About 10 minutes of form filling | Ceejay |
-| S7 | 🔵 NEXT | Dues and Stripe-webhook tests sit unmerged on origin/worktree-dues-tests | 🟢 MEDIUM | ⚪ Low | 🟢 Medium | 🟢 Good | 🟢 2–5 | Small | `@status:open` Survived the SSD; needs review and merge | Cooper |
+| S7 | 🔵 NEXT | Dues and Stripe-webhook tests sit unmerged on origin/worktree-dues-tests | 🟢 MEDIUM | ⚪ Low | 🟢 Medium | 🟢 Good | 🟢 2–5 | Small | `@status:closed` Merged into main 2026-10-01; 61/61 tests pass (`npm test`) | Cooper |
 | S8 | 🔵 NEXT | Feed and chat messages load a fixed 50 rows and stop | 🟢 MEDIUM | 🟢 Medium | 🟢 Medium | 🟢 Good | 🟢 2–5 | Medium | `@status:open` Cursor-based, not offset | TJ |
 
 ### Detail - Session spillover
@@ -39,7 +39,7 @@ The roadmap (`Road-to-App-Store.md`) is the launch plan. This file is the index 
 - **S4** - `eas build --profile production` then `eas submit`. `eas.json` already carries `appleId`, `ascAppId` 6797647574 and `appleTeamId` 58V44D98GX, and bakes the `EXPO_PUBLIC_*` values into builds. Deferred because: `scaffolding`.
 - **S5** - `app/settings.tsx:230` opens `PRIVACY_URL` and nothing links `https://rallyorgs.com/terms`. Guideline 1.2 applies because group chat is user-generated content even with the feed cut. The terms page is live and carries the zero-tolerance clause. **JS-only**, so it can ship as an Expo OTA update later, but it should be in the 1.0 build. Deferred because: `scope`. **Verify-still-open:** `grep -n "terms" app/settings.tsx` — expect no match.
 - **S6** - Everything else on the version page is done: subtitle, both categories, promotional text, description, keywords, support URL, marketing URL, copyright, privacy policy URL, and a 13+ age rating. Deferred because: `scope`.
-- **S7** - Branch adds `vitest.config.ts`, `tests/lib/dues.test.ts`, `tests/functions/stripe-webhook.test.ts` and doubles for Stripe and supabase-admin. It was cut before the accessibility pass merged, so it needs a rebase onto current `main`. This is the only coverage on code that moves money. Deferred because: `scope`.
+- **S7** - Branch adds `vitest.config.ts`, `tests/lib/dues.test.ts`, `tests/functions/stripe-webhook.test.ts` and doubles for Stripe and supabase-admin. It was cut before the accessibility pass merged, so it needs a rebase onto current `main`. This is the only coverage on code that moves money. Deferred because: `scope`. **Closed 2026-10-01:** merged into `main` (main merged into the branch rather than a rebase, so no force-push); lockfile check showed react 19.1.0 / react-native 0.81.5 / expo 54.0.35 unchanged, `tsc --noEmit` clean.
 - **S8** - `app/(tabs)/feed.tsx` and `app/chat/[id].tsx`. Use `created_at` cursors, not offset, because offset breaks when rows are inserted mid-scroll. **JS-only.** Deferred because: `scope`.
 
 ## 3. Audit findings
