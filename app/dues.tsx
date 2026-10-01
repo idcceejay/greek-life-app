@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
-import { Avatar, BackHeader, Card, Pill } from '../components/ui';
+import { Avatar, BackHeader, Card, Icon, Pill } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import { useMyOrg } from '../lib/data';
@@ -30,7 +30,7 @@ import {
   MemberBalance,
   MyCharge,
 } from '../lib/dues';
-import { colors, radius, spacing, type } from '../lib/theme';
+import { colors, iconSize, radius, spacing, type } from '../lib/theme';
 
 export default function DuesScreen() {
   const { session } = useSession();
@@ -40,6 +40,14 @@ export default function DuesScreen() {
 
   const [tab, setTab] = useState<'mine' | 'chapter'>('mine');
   const { charges, outstanding, loading, refresh } = useMyCharges();
+  // Earliest deadline among charges still owed (unpaid or partly paid).
+  const openCharges = charges.filter((c) => c.status === 'unpaid' || c.status === 'partial');
+  const openCount = openCharges.length;
+  const nextDue = openCharges
+    .map((c) => c.due_date)
+    .filter((d): d is string => !!d)
+    .sort()[0];
+  const nextDueOverdue = !!nextDue && dayjs(nextDue).isBefore(dayjs(), 'day');
   const { members, totalOwed, totalPaid, refresh: refreshOrg } = useOrgDues(
     isTreasurer ? membership?.org.id : undefined,
   );
@@ -188,11 +196,25 @@ export default function DuesScreen() {
             <Card style={s.hero}>
               <Text style={type.eyebrow}>Your balance</Text>
               <Text style={s.heroAmount}>{money(outstanding)}</Text>
-              <Text style={type.subhead}>
-                {outstanding === 0
-                  ? "You're all paid up."
-                  : `${charges.filter((c) => c.status === 'unpaid' || c.status === 'partial').length} open charge(s)`}
-              </Text>
+              {outstanding === 0 ? (
+                <Text style={type.subhead}>You're all paid up.</Text>
+              ) : nextDue ? (
+                // The real deadline the treasurer set — never invented urgency.
+                nextDueOverdue ? (
+                  <View style={s.dueRow} accessible accessibilityLabel={`Overdue since ${dayjs(nextDue).format('MMMM D')}`}>
+                    <Icon name="alert-circle-outline" size={iconSize.m} color={colors.danger} />
+                    <Text style={[s.dueText, { color: colors.danger }]}>
+                      Overdue since {dayjs(nextDue).format('MMM D')}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={s.dueText}>Due {dayjs(nextDue).format('MMM D')}</Text>
+                )
+              ) : (
+                <Text style={type.subhead}>
+                  {openCount} open charge{openCount === 1 ? '' : 's'}
+                </Text>
+              )}
             </Card>
 
             {loading && <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.l }} />}
@@ -489,6 +511,8 @@ const s = StyleSheet.create({
   scroll: { padding: spacing.l, paddingBottom: spacing.xxl },
   hero: { marginBottom: spacing.m, gap: 2 },
   heroAmount: { fontSize: 40, fontWeight: '700', color: colors.ink, marginVertical: 2 },
+  dueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dueText: { fontSize: 17, fontWeight: '600', color: colors.ink },
   card: { marginBottom: spacing.m, gap: spacing.s },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   amount: { fontSize: 17, fontWeight: '700', color: colors.ink },
