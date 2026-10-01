@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Avatar, Card } from '../components/ui';
+import { Avatar, BackHeader, Card } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import {
@@ -99,15 +99,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={s.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={type.headline} accessibilityRole="header">
-          Settings
-        </Text>
-        <View style={{ width: 64 }} />
-      </View>
+      <BackHeader title="Settings" />
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         {/* Profile */}
@@ -333,17 +325,6 @@ export default function SettingsScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.l,
-    paddingVertical: spacing.m,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.separator,
-  },
-  back: { color: colors.accent, fontSize: 17, fontWeight: '600', width: 64 },
   scroll: { padding: spacing.l, gap: spacing.m, paddingBottom: spacing.xxl },
   card: { gap: spacing.s },
   profileRow: { flexDirection: 'row', gap: spacing.m, alignItems: 'center', marginBottom: spacing.s },

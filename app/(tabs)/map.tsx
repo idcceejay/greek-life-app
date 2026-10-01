@@ -13,11 +13,11 @@ try {
 } catch {
   // Expo Go: no native maps module — fallback view is used below.
 }
-import { Avatar } from '../../components/ui';
+import { Avatar, Icon } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import { useLiveMap, milesBetween, MapPin } from '../../lib/useLiveMap';
 import { supabase } from '../../lib/supabase';
-import { colors, radius, spacing, type } from '../../lib/theme';
+import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
 
 const CAMPUS_FALLBACK = { latitude: 33.948, longitude: -83.3773 };
 
@@ -99,9 +99,16 @@ export default function MapScreen() {
           accessibilityHint="Hides your location from other members"
           accessibilityState={{ checked: ghost }}
         >
-          <Text style={[s.ghostText, ghost && { color: '#fff' }]}>
-            {ghost ? 'Ghost on' : 'Ghost off'}
-          </Text>
+          <Icon
+            name={ghost ? 'eye-off-outline' : 'eye-outline'}
+            size={iconSize.s}
+            color={ghost ? '#FFFFFF' : colors.inkSecondary}
+          />
+          <Text style={[s.ghostText, ghost && { color: '#fff' }]}>Ghost mode</Text>
+          {/* Drawn track so the control reads as a setting, not a status. */}
+          <View style={[s.track, ghost && s.trackOn]}>
+            <View style={[s.knob, ghost && s.knobOn]} />
+          </View>
         </Pressable>
       </View>
 
@@ -235,15 +242,23 @@ const s = StyleSheet.create({
     paddingBottom: spacing.s,
   },
   ghostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.s,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: colors.separator,
     backgroundColor: colors.card,
     borderRadius: radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingLeft: 14,
+    paddingRight: 6,
   },
   ghostBtnOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  ghostText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
+  ghostText: { color: colors.ink, fontWeight: '600', fontSize: 15 },
+  track: { width: 40, height: 24, borderRadius: 12, backgroundColor: colors.fill, padding: 2 },
+  trackOn: { backgroundColor: colors.accent },
+  knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF' },
+  knobOn: { alignSelf: 'flex-end' },
   mapWrap: { flex: 1 },
   map: { flex: 1 },
   fallbackMap: { backgroundColor: colors.mapTint },

@@ -11,9 +11,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
-import { Avatar, Card, Pill } from '../components/ui';
+import { Avatar, BackHeader, Card, Pill } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import { useMyOrg } from '../lib/data';
@@ -33,7 +33,6 @@ import {
 import { colors, radius, spacing, type } from '../lib/theme';
 
 export default function DuesScreen() {
-  const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
   const { membership } = useMyOrg(userId);
@@ -153,15 +152,7 @@ export default function DuesScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={s.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={type.headline} accessibilityRole="header">
-          Dues
-        </Text>
-        <View style={{ width: 64 }} />
-      </View>
+      <BackHeader title="Dues" />
 
       {isTreasurer && (
         <View style={s.segmentWrap}>
@@ -484,17 +475,6 @@ export default function DuesScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.l,
-    paddingVertical: spacing.m,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.separator,
-  },
-  back: { color: colors.accent, fontSize: 17, fontWeight: '600', width: 64 },
   segmentWrap: { paddingHorizontal: spacing.l, paddingTop: spacing.m },
   segment: {
     flexDirection: 'row',
