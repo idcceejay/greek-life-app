@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import { Card, ScreenTitle } from '../../components/ui';
@@ -16,17 +17,32 @@ const REPEATS = [
   { key: 'FREQ=YEARLY', label: 'Every year' },
 ] as const;
 
+/** One-tap titles so the form never starts blank. */
+const TITLE_PICKS = ['Chapter meeting', 'Social', 'Philanthropy', 'Study hours'] as const;
+
 /** Round up to the next full hour — a friendly default start time. */
 function nextHour() {
   return dayjs().add(1, 'hour').startOf('hour').toDate();
 }
 
+/** Next date after now on the same weekday and clock time as `d`. */
+function nextSameSlot(d: dayjs.Dayjs) {
+  let c = dayjs().day(d.day()).hour(d.hour()).minute(d.minute()).second(0).millisecond(0);
+  if (!c.isAfter(dayjs())) c = c.add(1, 'week');
+  return c;
+}
+
 export default function CalendarScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
-  const { membership } = useMyOrg(userId);
-  const { events: liveEvents, refresh } = useEvents(membership?.org.id);
+  const { membership, loading: orgLoading } = useMyOrg(userId);
+  const { events: liveEvents, loading: eventsLoading, refresh } = useEvents(membership?.org.id);
   const isAdmin = membership?.role === 'admin' || membership?.role === 'treasurer';
+  // Until both have answered, "no organization" / "nothing scheduled" would be
+  // a guess — show a loading card instead.
+  const loading = orgLoading || (!!membership && eventsLoading);
+  const params = useLocalSearchParams<{ new?: string }>();
+  const [prefilled, setPrefilled] = useState(false);
 
   const [mode, setMode] = useState<Mode>('Week');
   const [selected, setSelected] = useState(dayjs());
@@ -74,18 +90,44 @@ export default function CalendarScreen() {
     [events],
   );
 
+  // Smart defaults: start from the chapter's most recent past event (its title,
+  // place, weekday and time) so the common case — the weekly meeting — is one
+  // tap. With no history, fall back to the next full hour and a blank title.
   const openNew = () => {
-    setTitle('');
-    setPlace('');
-    setWhen(
-      selected.isSame(dayjs(), 'day')
-        ? nextHour()
-        : selected.hour(18).minute(0).second(0).toDate(),
-    );
+    const last = liveEvents
+      .filter((e) => !e.rrule && dayjs(e.starts_at).isBefore(dayjs()))
+      .at(-1);
+    const today = selected.isSame(dayjs(), 'day');
+    if (last) {
+      const d = dayjs(last.starts_at);
+      setTitle(last.title);
+      setPlace(last.location_text ?? '');
+      setWhen(
+        today
+          ? nextSameSlot(d).toDate()
+          : selected.hour(d.hour()).minute(d.minute()).second(0).toDate(),
+      );
+      setPrefilled(true);
+    } else {
+      setTitle('');
+      setPlace('');
+      setWhen(today ? nextHour() : selected.hour(18).minute(0).second(0).toDate());
+      setPrefilled(false);
+    }
     setRepeat(null);
     setErr(null);
     setShowNew(true);
   };
+
+  // Home's "New event" buttons link here with ?new=1. Wait for events so the
+  // defaults above can use them, then clear the flag so it fires once.
+  useEffect(() => {
+    if (params.new === '1' && membership && !eventsLoading) {
+      openNew();
+      router.setParams({ new: '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.new, membership, eventsLoading]);
 
   const submitNew = async () => {
     setErr(null);
@@ -290,7 +332,21 @@ export default function CalendarScreen() {
           </View>
         )}
 
-        {visible.length === 0 && (
+        {loading && (
+          <Card style={s.empty}>
+            <View
+              accessible
+              accessibilityLabel="Loading your chapter's events"
+              accessibilityState={{ busy: true }}
+              style={{ gap: spacing.s }}
+            >
+              <View style={[s.skel, { width: '58%', height: 16 }]} />
+              <View style={[s.skel, { width: '82%', height: 12 }]} />
+              <Text style={type.caption}>Loading your chapter's events</Text>
+            </View>
+          </Card>
+        )}
+        {!loading && visible.length === 0 && (
           <Card style={s.empty}>
             <Text style={type.headline}>
               {membership ? 'Nothing scheduled' : 'No organization yet'}
@@ -365,6 +421,21 @@ export default function CalendarScreen() {
             onChangeText={setTitle}
             accessibilityLabel="Event title"
           />
+          <View style={s.repeatChips}>
+            {TITLE_PICKS.map((t) => (
+              <Pressable
+                key={t}
+                onPress={() => setTitle(t)}
+                hitSlop={{ top: 6, bottom: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Use title ${t}`}
+                accessibilityState={{ selected: title === t }}
+                style={[s.repeatChip, title === t && s.repeatChipOn]}
+              >
+                <Text style={[s.repeatChipText, title === t && { color: '#fff' }]}>{t}</Text>
+              </Pressable>
+            ))}
+          </View>
           <TextInput
             style={s.input}
             placeholder="Location (optional)"
@@ -418,6 +489,11 @@ export default function CalendarScreen() {
           {repeat && (
             <Text style={type.caption}>
               Repeats every {dayjs(when).format('MMMM D')} — great for birthdays.
+            </Text>
+          )}
+          {prefilled && (
+            <Text style={type.caption}>
+              Filled in from your last event. Change anything you need.
             </Text>
           )}
 
@@ -523,6 +599,7 @@ const s = StyleSheet.create({
   },
   timeBig: { fontSize: 20, fontWeight: '700', color: colors.ink },
   empty: { gap: 4, marginBottom: spacing.m },
+  skel: { borderRadius: 8, backgroundColor: colors.separator },
   eventCard: { flexDirection: 'row', padding: 0, overflow: 'hidden', marginBottom: spacing.m },
   eventAccent: { width: 4, backgroundColor: colors.accent },
   eventBody: { flex: 1, padding: spacing.l, gap: 4 },
