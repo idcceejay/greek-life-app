@@ -498,7 +498,7 @@ const s = StyleSheet.create({
   segmentWrap: { paddingHorizontal: spacing.l, paddingTop: spacing.m },
   segment: {
     flexDirection: 'row',
-    backgroundColor: '#E4E3E9',
+    backgroundColor: colors.fill,
     borderRadius: radius.control,
     padding: 3,
   },

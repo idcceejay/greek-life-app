@@ -195,7 +195,7 @@ export default function ChatScreen() {
               <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubbleTheirs]}>
                 {!item.mine && item.sender_name && <Text style={s.sender}>{item.sender_name}</Text>}
                 <Text style={[type.body, item.mine && { color: '#fff' }]}>{item.body}</Text>
-                <Text style={[s.time, item.mine && { color: '#D9D9FB' }]}>
+                <Text style={[s.time, item.mine && { color: '#FFFFFF' }]}>
                   {dayjs(item.created_at).format('h:mm A')}
                 </Text>
               </View>

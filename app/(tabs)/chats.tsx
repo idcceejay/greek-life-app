@@ -252,7 +252,7 @@ const s = StyleSheet.create({
   },
   joinBtnText: { color: colors.accent, fontWeight: '600', fontSize: 14 },
   search: {
-    backgroundColor: '#E4E3E9',
+    backgroundColor: colors.fill,
     borderRadius: radius.control,
     paddingHorizontal: spacing.l,
     paddingVertical: 10,

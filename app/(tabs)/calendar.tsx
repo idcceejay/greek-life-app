@@ -464,7 +464,7 @@ const s = StyleSheet.create({
   addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   segment: {
     flexDirection: 'row',
-    backgroundColor: '#E4E3E9',
+    backgroundColor: colors.fill,
     borderRadius: radius.control,
     padding: 3,
     marginBottom: spacing.m,
