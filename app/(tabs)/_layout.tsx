@@ -1,39 +1,19 @@
 import React from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useSession } from '../../lib/useSession';
-import { colors } from '../../lib/theme';
+import { colors, iconSize } from '../../lib/theme';
+import { Icon, IconName } from '../../components/ui';
 
 /**
- * 5-tab bar per the UI Layout PDF: Map · Chats · Home (raised center) · Calendar · Feed.
- * Icons are simple glyph placeholders until an icon set is chosen.
+ * 5-tab bar per the UI Layout PDF: Map · Chats · Home · Calendar · Feed.
+ * Home is a normal tab (it's a place, not an action), so all five share one
+ * style: Ionicons outline when idle, filled when selected. The icon is
+ * decorative — the tab's `title` is its accessible name.
  */
-/**
- * Glyphs are decorative — the tab's `title` already supplies the accessible
- * name, so hiding them stops VoiceOver reading "black up-pointing triangle".
- */
-function GlyphIcon({ focused, glyph }: { focused: boolean; glyph: string }) {
-  return (
-    <View
-      style={[s.icon, { backgroundColor: focused ? colors.accent : colors.separator }]}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <Text style={{ fontSize: 11, color: focused ? '#fff' : colors.inkSecondary }}>{glyph}</Text>
-    </View>
-  );
-}
-
-function HomeIcon({ focused }: { focused: boolean }) {
-  return (
-    <View
-      style={[s.homeIcon, { backgroundColor: focused ? colors.accent : colors.accentSoft }]}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <View style={[s.homeDot, { backgroundColor: focused ? '#fff' : colors.accent }]} />
-    </View>
-  );
+function TabIcon({ focused, color, name }: { focused: boolean; color: string; name: IconName }) {
+  const icon = (focused ? name : `${name}-outline`) as IconName;
+  return <Icon name={icon} size={iconSize.tab} color={color} />;
 }
 
 export default function TabLayout() {
@@ -82,48 +62,24 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="map"
-        options={{ title: 'Map', tabBarIcon: ({ focused }) => <GlyphIcon focused={focused} glyph="◉" /> }}
+        options={{ title: 'Map', tabBarIcon: (p) => <TabIcon {...p} name="map" /> }}
       />
       <Tabs.Screen
         name="chats"
-        options={{ title: 'Chats', tabBarIcon: ({ focused }) => <GlyphIcon focused={focused} glyph="✉" /> }}
+        options={{ title: 'Chats', tabBarIcon: (p) => <TabIcon {...p} name="chatbubbles" /> }}
       />
       <Tabs.Screen
         name="index"
-        options={{ title: 'Home', tabBarIcon: ({ focused }) => <HomeIcon focused={focused} /> }}
+        options={{ title: 'Home', tabBarIcon: (p) => <TabIcon {...p} name="home" /> }}
       />
       <Tabs.Screen
         name="calendar"
-        options={{ title: 'Calendar', tabBarIcon: ({ focused }) => <GlyphIcon focused={focused} glyph="▦" /> }}
+        options={{ title: 'Calendar', tabBarIcon: (p) => <TabIcon {...p} name="calendar" /> }}
       />
       <Tabs.Screen
         name="feed"
-        options={{ title: 'Feed', tabBarIcon: ({ focused }) => <GlyphIcon focused={focused} glyph="≡" /> }}
+        options={{ title: 'Feed', tabBarIcon: (p) => <TabIcon {...p} name="newspaper" /> }}
       />
     </Tabs>
   );
 }
-
-const s = StyleSheet.create({
-  icon: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  homeIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -18,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  homeDot: { width: 16, height: 16, borderRadius: 5 },
-});

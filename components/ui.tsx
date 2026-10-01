@@ -1,6 +1,79 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { colors, radius, spacing, type } from '../lib/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
+import { colors, iconSize, radius, spacing, type } from '../lib/theme';
+
+export type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/**
+ * Ionicons glyph. Decorative by default: almost every icon sits beside text
+ * that already names it, so VoiceOver skips it. Pass `label` only when the
+ * icon stands alone and carries meaning.
+ */
+export function Icon({
+  name,
+  size = iconSize.m,
+  color = colors.accent,
+  label,
+}: {
+  name: IconName;
+  size?: number;
+  color?: string;
+  label?: string;
+}) {
+  return (
+    <Ionicons
+      name={name}
+      size={size}
+      color={color}
+      accessible={!!label}
+      accessibilityLabel={label}
+      accessibilityElementsHidden={!label}
+      importantForAccessibility={label ? 'auto' : 'no-hide-descendants'}
+    />
+  );
+}
+
+/** Rounded light-rose square holding a card's icon. */
+export function IconTile({ name }: { name: IconName }) {
+  return (
+    <View style={s.tile}>
+      <Icon name={name} />
+    </View>
+  );
+}
+
+/** Trailing chevron on a tappable row or card. */
+export function Chevron() {
+  return <Icon name="chevron-forward" size={iconSize.s} color={colors.inkSecondary} />;
+}
+
+/**
+ * Shared top bar for pushed screens (Dues, Members, Settings): back arrow +
+ * "Back" on the left, centred title. One component so every screen's back
+ * button looks and reads the same.
+ */
+export function BackHeader({ title }: { title: string }) {
+  return (
+    <View style={s.header}>
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.6 }]}
+      >
+        <Icon name="chevron-back" size={iconSize.l} />
+        <Text style={s.backText}>Back</Text>
+      </Pressable>
+      <Text style={type.headline} accessibilityRole="header" numberOfLines={1}>
+        {title}
+      </Text>
+      <View style={s.headerSpacer} />
+    </View>
+  );
+}
 
 /**
  * White rounded bento card (HIG-style grouped surface).
@@ -142,4 +215,25 @@ const s = StyleSheet.create({
   },
   chipText: { color: colors.accentInk, fontWeight: '600', fontSize: 15 },
   screenTitle: { ...type.largeTitle, marginBottom: spacing.l },
+  tile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.s,
+    minHeight: 48,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.separator,
+  },
+  backBtn: { flexDirection: 'row', alignItems: 'center', minHeight: 44, width: 88 },
+  backText: { color: colors.accent, fontSize: 17 },
+  headerSpacer: { width: 88 },
 });

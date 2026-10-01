@@ -9,10 +9,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Avatar, Card } from '../components/ui';
+import { Avatar, BackHeader, Card, Chevron } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import {
@@ -55,7 +55,6 @@ function initials(m: MemberRow) {
 }
 
 export default function MembersScreen() {
-  const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
   const { membership } = useMyOrg(userId);
@@ -113,20 +112,7 @@ export default function MembersScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <View style={s.header}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Text style={s.back}>Back</Text>
-        </Pressable>
-        <Text style={type.headline} accessibilityRole="header">
-          Members
-        </Text>
-        <View style={{ width: 64 }} />
-      </View>
+      <BackHeader title="Members" />
 
       <ScrollView contentContainerStyle={s.scroll}>
         {!membership && !loading && (
@@ -202,15 +188,6 @@ export default function MembersScreen() {
           </Card>
         )}
 
-        {!isAdmin && pending.length > 0 && (
-          <Card style={s.card}>
-            <Text style={type.caption}>
-              {pending.length} pending request{pending.length === 1 ? '' : 's'}. An admin can approve
-              them.
-            </Text>
-          </Card>
-        )}
-
         {/* Active roster */}
         {membership && (
           <Card style={s.card}>
@@ -233,16 +210,12 @@ export default function MembersScreen() {
                 <Avatar initials={initials(m)} />
                 <View style={s.grow}>
                   <Text style={type.body}>{displayName(m)}</Text>
-                  <Text style={type.caption}>
-                    {ROLE_LABEL[m.role]}
-                    {m.userId === userId ? ' · you' : ''}
-                  </Text>
+                  {/* Username tells apart members who share a display name. */}
+                  {m.username ? <Text style={type.subhead}>@{m.username}</Text> : null}
                 </View>
-                {isAdmin && (
-                  <Text style={s.chevron} accessibilityElementsHidden>
-                    ›
-                  </Text>
-                )}
+                {m.userId === userId && <Text style={[s.chip, s.chipYou]}>You</Text>}
+                <Text style={s.chip}>{ROLE_LABEL[m.role]}</Text>
+                {isAdmin && <Chevron />}
               </Pressable>
             ))}
           </Card>
@@ -264,13 +237,10 @@ export default function MembersScreen() {
                 <Avatar initials={initials(m)} />
                 <View style={s.grow}>
                   <Text style={type.body}>{displayName(m)}</Text>
-                  <Text style={type.caption}>Alumni</Text>
+                  {m.username ? <Text style={type.subhead}>@{m.username}</Text> : null}
                 </View>
-                {isAdmin && (
-                  <Text style={s.chevron} accessibilityElementsHidden>
-                    ›
-                  </Text>
-                )}
+                <Text style={s.chip}>Alumni</Text>
+                {isAdmin && <Chevron />}
               </Pressable>
             ))}
           </Card>
@@ -345,18 +315,19 @@ export default function MembersScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.l,
-    paddingVertical: spacing.m,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.separator,
-  },
-  back: { color: colors.accent, fontSize: 17, fontWeight: '600', width: 64 },
   scroll: { padding: spacing.l, gap: spacing.m, paddingBottom: spacing.xxl },
+  // Role / "You" chips on the right of each roster row
+  chip: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.inkSecondary,
+    backgroundColor: colors.canvas,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  chipYou: { color: colors.accentInk, backgroundColor: colors.accentSoft, fontWeight: '600' },
   card: { gap: spacing.s },
   center: { paddingVertical: spacing.xl, alignItems: 'center' },
   grow: { flex: 1, gap: 2 },
@@ -381,7 +352,6 @@ const s = StyleSheet.create({
   },
   approveText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   decline: { color: colors.inkSecondary, fontSize: 15, fontWeight: '600' },
-  chevron: { color: colors.inkTertiary, fontSize: 22, fontWeight: '400' },
   link: { color: colors.accent, fontSize: 16, fontWeight: '600', paddingVertical: 6 },
   err: { color: colors.danger, fontSize: 14 },
   footnote: { ...type.caption, textAlign: 'center', marginTop: spacing.s },
