@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
-import { Card, ScreenTitle } from '../../components/ui';
+import { Card, Icon, ScreenTitle } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useEvents, createEvent, deleteEvent, EventRow } from '../../lib/data';
-import { colors, radius, spacing, type } from '../../lib/theme';
+import { addToPhoneCalendar, usePhoneCalendar } from '../../lib/usePhoneCalendar';
+import { groupBySource, PhoneEvent } from '../../lib/phoneCalendarCore';
+import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
 
 const MODES = ['Day', 'Week', 'Month'] as const;
 type Mode = (typeof MODES)[number];
@@ -52,6 +54,9 @@ export default function CalendarScreen() {
   const [when, setWhen] = useState<Date>(nextHour());
   const [repeat, setRepeat] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [showCals, setShowCals] = useState(false);
+  // Apple / Google / Outlook calendars already on this phone, read on-device.
+  const phone = usePhoneCalendar(selected);
 
   const baseEvents: EventRow[] = liveEvents;
 
@@ -68,17 +73,31 @@ export default function CalendarScreen() {
     return out.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }, [baseEvents, selected.year()]);
 
-  const visible = useMemo(() => {
-    if (mode === 'Day') return events.filter((e) => dayjs(e.starts_at).isSame(selected, 'day'));
-    if (mode === 'Week') {
-      const start = selected.startOf('week'); // Sunday
-      const end = start.add(7, 'day');
-      return events.filter(
-        (e) => dayjs(e.starts_at).isAfter(start.subtract(1, 'ms')) && dayjs(e.starts_at).isBefore(end),
-      );
-    }
-    return events.filter((e) => dayjs(e.starts_at).isSame(selected, 'month'));
-  }, [events, mode, selected]);
+  const inView = useMemo(() => {
+    const start = selected.startOf('week'); // Sunday
+    const end = start.add(7, 'day');
+    return (iso: string) => {
+      const d = dayjs(iso);
+      if (mode === 'Day') return d.isSame(selected, 'day');
+      if (mode === 'Week') return !d.isBefore(start) && d.isBefore(end);
+      return d.isSame(selected, 'month');
+    };
+  }, [mode, selected]);
+
+  const visible = useMemo(() => events.filter((e) => inView(e.starts_at)), [events, inView]);
+  const visiblePhone = useMemo(
+    () => phone.events.filter((e) => inView(e.starts_at)),
+    [phone.events, inView],
+  );
+  // Rally and phone events in one time-ordered list.
+  const items = useMemo(
+    () =>
+      [
+        ...visible.map((e) => ({ kind: 'rally' as const, e })),
+        ...visiblePhone.map((e) => ({ kind: 'phone' as const, e })),
+      ].sort((a, b) => a.e.starts_at.localeCompare(b.e.starts_at)),
+    [visible, visiblePhone],
+  );
 
   // Weeks run Sunday → Saturday
   const weekStart = selected.startOf('week');
@@ -89,6 +108,13 @@ export default function CalendarScreen() {
     () => new Set(events.map((e) => dayjs(e.starts_at).format('YYYY-MM-DD'))),
     [events],
   );
+  const phoneDays = useMemo(
+    () => new Set(phone.events.map((e) => dayjs(e.starts_at).format('YYYY-MM-DD'))),
+    [phone.events],
+  );
+  /** Chapter events get the accent dot; days with only phone events a grey one. */
+  const dotColor = (key: string) =>
+    eventDays.has(key) ? colors.accent : phoneDays.has(key) ? colors.inkTertiary : undefined;
 
   // Smart defaults: start from the chapter's most recent past event (its title,
   // place, weekday and time) so the common case — the weekly meeting — is one
@@ -167,6 +193,13 @@ export default function CalendarScreen() {
     );
   };
 
+  // Tap a chapter event to copy it into the phone's calendar (Apple or Google).
+  const addToPhone = async (e: EventRow) => {
+    if (!(await phone.connect())) return;
+    const ok = await addToPhoneCalendar(e);
+    if (!ok) Alert.alert("Couldn't open your calendar", 'Please try again.');
+  };
+
   const shift = (n: number) =>
     setSelected(selected.add(n, mode === 'Day' ? 'day' : mode === 'Week' ? 'week' : 'month'));
 
@@ -175,17 +208,31 @@ export default function CalendarScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
           <ScreenTitle>Calendar</ScreenTitle>
-          {membership && (
-            <Pressable
-              style={s.addBtn}
-              onPress={openNew}
-              hitSlop={{ top: 8, bottom: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="New event"
-            >
-              <Text style={s.addBtnText}>+ Event</Text>
-            </Pressable>
-          )}
+          <View style={s.titleBtns}>
+            {phone.status !== 'unavailable' && (
+              <Pressable
+                style={s.calsBtn}
+                onPress={() => setShowCals(true)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Your calendars"
+                accessibilityHint="Show your Apple or Google calendar events here"
+              >
+                <Icon name="layers-outline" size={iconSize.m} />
+              </Pressable>
+            )}
+            {membership && (
+              <Pressable
+                style={s.addBtn}
+                onPress={openNew}
+                hitSlop={{ top: 8, bottom: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="New event"
+              >
+                <Text style={s.addBtnText}>+ Event</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         <View style={s.segment} accessibilityRole="tablist">
@@ -240,9 +287,9 @@ export default function CalendarScreen() {
               <Text style={type.headline}>{selected.format('dddd')}</Text>
               <Text style={type.subhead}>{selected.format('MMMM YYYY')}</Text>
               <Text style={type.caption}>
-                {visible.length === 0
+                {items.length === 0
                   ? 'No events'
-                  : `${visible.length} event${visible.length === 1 ? '' : 's'}`}
+                  : `${items.length} event${items.length === 1 ? '' : 's'}`}
               </Text>
             </View>
             {!selected.isSame(dayjs(), 'day') && (
@@ -263,7 +310,8 @@ export default function CalendarScreen() {
           <View style={s.week}>
             {weekDays.map((d) => {
               const isSelected = d.isSame(selected, 'day');
-              const hasEvent = eventDays.has(d.format('YYYY-MM-DD'));
+              const dot = dotColor(d.format('YYYY-MM-DD'));
+              const hasEvent = !!dot;
               return (
                 <Pressable
                   key={d.format('YYYY-MM-DD')}
@@ -280,7 +328,7 @@ export default function CalendarScreen() {
                   <View style={[s.dayNum, isSelected && s.dayNumActive]}>
                     <Text style={[s.dayNumText, isSelected && s.dayNumTextActive]}>{d.date()}</Text>
                   </View>
-                  <View style={[s.dot, hasEvent && { backgroundColor: colors.accent }]} />
+                  <View style={[s.dot, dot ? { backgroundColor: dot } : null]} />
                 </Pressable>
               );
             })}
@@ -302,7 +350,8 @@ export default function CalendarScreen() {
             {monthDays.map((d) => {
               const inMonth = d.isSame(selected, 'month');
               const isSelected = d.isSame(selected, 'day');
-              const hasEvent = eventDays.has(d.format('YYYY-MM-DD'));
+              const dot = dotColor(d.format('YYYY-MM-DD'));
+              const hasEvent = !!dot;
               return (
                 <Pressable
                   key={d.format('YYYY-MM-DD')}
@@ -325,7 +374,7 @@ export default function CalendarScreen() {
                       {d.date()}
                     </Text>
                   </View>
-                  <View style={[s.dot, hasEvent && { backgroundColor: colors.accent }]} />
+                  <View style={[s.dot, dot ? { backgroundColor: dot } : null]} />
                 </Pressable>
               );
             })}
@@ -346,7 +395,7 @@ export default function CalendarScreen() {
             </View>
           </Card>
         )}
-        {!loading && visible.length === 0 && (
+        {!loading && items.length === 0 && (
           <Card style={s.empty}>
             <Text style={type.headline}>
               {membership ? 'Nothing scheduled' : 'No organization yet'}
@@ -358,9 +407,13 @@ export default function CalendarScreen() {
             </Text>
           </Card>
         )}
-        {visible.map((e) => (
+        {items.map((it) => {
+          if (it.kind === 'phone') return <PhoneEventCard key={it.e.id} e={it.e} mode={mode} />;
+          const e = it.e;
+          return (
           <Pressable
             key={e.id}
+            onPress={phone.status !== 'unavailable' ? () => addToPhone(e) : undefined}
             onLongPress={() => confirmDelete(e)}
             delayLongPress={400}
             accessible
@@ -368,6 +421,9 @@ export default function CalendarScreen() {
             accessibilityLabel={`${e.title}, ${dayjs(e.starts_at).format('dddd MMMM D, h:mm A')}${
               e.location_text ? `, at ${e.location_text}` : ''
             }${e.rrule ? ', repeats yearly' : ''}`}
+            accessibilityHint={
+              phone.status !== 'unavailable' ? "Adds it to your phone's calendar" : undefined
+            }
             // Long-press is unreachable under VoiceOver, so expose delete as a
             // rotor action too (SC 2.5.1 / 2.1.1).
             accessibilityActions={
@@ -401,9 +457,14 @@ export default function CalendarScreen() {
               </View>
             </Card>
           </Pressable>
-        ))}
+          );
+        })}
         {visible.length > 0 && (
-          <Text style={s.hintText}>Hold an event to delete it (creator or admin).</Text>
+          <Text style={s.hintText}>
+            {phone.status !== 'unavailable'
+              ? "Tap a chapter event to add it to your phone's calendar. Hold to delete it (creator or admin)."
+              : 'Hold an event to delete it (creator or admin).'}
+          </Text>
         )}
       </ScrollView>
 
@@ -522,7 +583,131 @@ export default function CalendarScreen() {
           </View>
         </View>
       </Sheet>
+
+      {/* Your calendars: show phone (Apple / Google) calendars alongside chapter events */}
+      <Sheet visible={showCals} onClose={() => setShowCals(false)} label="Your calendars">
+        <ScrollView style={s.calsScroll} contentContainerStyle={s.modal}>
+          <Text style={type.title2} accessibilityRole="header">
+            Your calendars
+          </Text>
+          <Text style={type.subhead}>
+            See your Apple and Google Calendar events next to your chapter's. They stay on this
+            phone: Rally never uploads them or shows them to anyone else.
+          </Text>
+
+          {phone.status !== 'granted' && (
+            <>
+              {phone.status === 'denied' && (
+                <Text style={type.caption}>
+                  Calendar access is turned off for Rally. Turn it on in Settings, then come back.
+                </Text>
+              )}
+              <Pressable
+                style={s.mBtn}
+                onPress={phone.connect}
+                accessibilityRole="button"
+                accessibilityLabel={phone.status === 'denied' ? 'Open Settings' : 'Connect calendars'}
+              >
+                <Text style={s.mBtnText}>
+                  {phone.status === 'denied' ? 'Open Settings' : 'Connect calendars'}
+                </Text>
+              </Pressable>
+            </>
+          )}
+
+          {phone.status === 'granted' && (
+            <>
+              <View style={[s.calGroup, s.calRow]}>
+                <Text style={[type.body, { flex: 1 }]}>Show on Rally calendar</Text>
+                <Switch
+                  value={phone.show}
+                  onValueChange={phone.setShow}
+                  trackColor={{ true: colors.accent }}
+                  accessibilityLabel="Show phone calendars on Rally calendar"
+                />
+              </View>
+              {phone.show && phone.calendars.length === 0 && (
+                <Text style={type.caption}>No calendars found on this phone.</Text>
+              )}
+              {phone.show &&
+                groupBySource(phone.calendars).map((g) => (
+                  <View key={g.source} style={s.calGroup}>
+                    <Text style={s.calSource} accessibilityRole="header">
+                      {g.source}
+                    </Text>
+                    {g.calendars.map((c) => (
+                      <View key={c.id} style={s.calRow}>
+                        <View style={[s.calSwatch, { backgroundColor: c.color }]} />
+                        <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
+                          {c.title}
+                        </Text>
+                        <Switch
+                          value={!phone.hidden.includes(c.id)}
+                          onValueChange={() => phone.toggleCalendar(c.id)}
+                          trackColor={{ true: colors.accent }}
+                          accessibilityLabel={`${c.title}, ${g.source}`}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                ))}
+            </>
+          )}
+
+          <Text style={type.caption}>
+            Use Google Calendar? On your iPhone open Settings → Apps → Calendar → Calendar Accounts
+            → Add Account → Google. Its calendars then show up here.
+          </Text>
+
+          <Pressable
+            style={[s.mBtn, s.mBtnGhost]}
+            onPress={() => setShowCals(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+          >
+            <Text style={[s.mBtnText, { color: colors.ink }]}>Done</Text>
+          </Pressable>
+        </ScrollView>
+      </Sheet>
     </SafeAreaView>
+  );
+}
+
+/** Read-only card for an event from the phone's own calendar. */
+function PhoneEventCard({ e, mode }: { e: PhoneEvent; mode: Mode }) {
+  const start = dayjs(e.starts_at);
+  const when = e.all_day ? 'All day' : start.format('h:mm A');
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${e.title}, ${start.format('dddd MMMM D')}, ${when}${
+        e.location_text ? `, at ${e.location_text}` : ''
+      }, from your ${e.calendarTitle} calendar`}
+    >
+      <Card style={s.eventCard}>
+        <View style={[s.eventAccent, { backgroundColor: e.color }]} />
+        {mode === 'Day' && (
+          <View style={s.timeCol}>
+            <Text style={s.timeBig}>{e.all_day ? 'All' : start.format('h:mm')}</Text>
+            <Text style={type.caption}>{e.all_day ? 'day' : start.format('A')}</Text>
+          </View>
+        )}
+        <View style={s.eventBody}>
+          <View style={s.eventTopRow}>
+            <Text style={[type.caption, { flexShrink: 1 }]} numberOfLines={1}>
+              {mode === 'Day' ? e.calendarTitle : `${start.format('ddd')} · ${when}`}
+            </Text>
+            {mode !== 'Day' && (
+              <Text style={[type.caption, s.phoneTag]} numberOfLines={1}>
+                {e.calendarTitle}
+              </Text>
+            )}
+          </View>
+          <Text style={type.headline}>{e.title}</Text>
+          {mode === 'Day' && e.location_text && <Text style={type.caption}>{e.location_text}</Text>}
+        </View>
+      </Card>
+    </View>
   );
 }
 
@@ -530,12 +715,20 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   scroll: { padding: spacing.l, paddingBottom: spacing.xxl },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  titleBtns: { flexDirection: 'row', alignItems: 'center', gap: spacing.s, marginTop: 6 },
+  calsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addBtn: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginTop: 6,
   },
   addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   segment: {
@@ -604,6 +797,17 @@ const s = StyleSheet.create({
   eventAccent: { width: 4, backgroundColor: colors.accent },
   eventBody: { flex: 1, padding: spacing.l, gap: 4 },
   eventTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  phoneTag: { flexShrink: 1, marginLeft: spacing.s, textAlign: 'right' },
+  calsScroll: {
+    maxHeight: 640,
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
+  },
+  calGroup: { backgroundColor: colors.card, borderRadius: radius.control, paddingHorizontal: spacing.l },
+  calSource: { ...type.caption, paddingTop: spacing.m },
+  calRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m, minHeight: 48 },
+  calSwatch: { width: 12, height: 12, borderRadius: 6 },
   hintText: { ...type.caption, textAlign: 'center', marginTop: spacing.s },
   modal: {
     backgroundColor: colors.canvas,
