@@ -448,7 +448,7 @@ export default function CalendarScreen() {
                   <Text style={type.caption}>
                     {mode === 'Day'
                       ? (e.location_text ?? 'No location')
-                      : dayjs(e.starts_at).format('ddd · h:mm A')}
+                      : dayjs(e.starts_at).format('ddd, MMM D · h:mm A')}
                     {e.rrule ? '  ·  ↻ yearly' : ''}
                   </Text>
                   {mode !== 'Day' && <Text style={type.caption}>{e.location_text ?? ''}</Text>}
@@ -694,8 +694,8 @@ function PhoneEventCard({ e, mode }: { e: PhoneEvent; mode: Mode }) {
         )}
         <View style={s.eventBody}>
           <View style={s.eventTopRow}>
-            <Text style={[type.caption, { flexShrink: 1 }]} numberOfLines={1}>
-              {mode === 'Day' ? e.calendarTitle : `${start.format('ddd')} · ${when}`}
+            <Text style={[type.caption, { flexShrink: mode === 'Day' ? 1 : 0 }]} numberOfLines={1}>
+              {mode === 'Day' ? e.calendarTitle : `${start.format('ddd, MMM D')} · ${when}`}
             </Text>
             {mode !== 'Day' && (
               <Text style={[type.caption, s.phoneTag]} numberOfLines={1}>
