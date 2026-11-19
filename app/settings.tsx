@@ -27,8 +27,9 @@ import {
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 
-const SUPPORT_EMAIL = 'support@rallyapp.com'; // TODO: real support inbox before submission
-const PRIVACY_URL = 'https://rallyapp.com/privacy'; // TODO: publish before submission
+const SUPPORT_EMAIL = 'support@rallyorgs.com';
+const PRIVACY_URL = 'https://rallyorgs.com/privacy';
+const TERMS_URL = 'https://rallyorgs.com/terms';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -226,6 +227,15 @@ export default function SettingsScreen() {
             accessibilityHint="Opens in your browser"
           >
             <Text style={s.link}>Privacy Policy</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => Linking.openURL(TERMS_URL)}
+            hitSlop={{ top: 12, bottom: 12 }}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of Use"
+            accessibilityHint="Opens in your browser"
+          >
+            <Text style={s.link}>Terms of Use</Text>
           </Pressable>
           <Text style={type.caption}>
             We review reported content within 24 hours and remove anything that violates our
