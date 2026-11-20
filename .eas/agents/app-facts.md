@@ -1,0 +1,3 @@
+- The app opens on the "Sign in" screen. Each other screen needs an 8-digit code that the app sends to an email inbox, so the agent cannot open the other screens.
+- Do not type an email address that has an @ and then tap "Send code". That sends a real email and creates an account.
+- Do not sign in, and do not delete an account.
