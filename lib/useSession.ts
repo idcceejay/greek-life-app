@@ -6,7 +6,8 @@ export type Profile = {
   id: string;
   username: string | null;
   full_name: string | null;
-  birthday: string;
+  /** Not readable through the API since 0012 (privacy); saved via ensure_profile. */
+  birthday?: string;
   account_type: 'student' | 'alumni';
   school_id: string | null;
   avatar_url: string | null;
@@ -40,7 +41,7 @@ export function useSession() {
     let cancelled = false;
     supabase
       .from('profiles')
-      .select('id, username, full_name, birthday, account_type, school_id, avatar_url')
+      .select('id, username, full_name, account_type, school_id, avatar_url')
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -62,7 +63,7 @@ export function useSession() {
       if (!session) return;
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, full_name, birthday, account_type, school_id, avatar_url')
+        .select('id, username, full_name, account_type, school_id, avatar_url')
         .eq('id', session.user.id)
         .maybeSingle();
       setProfile((data as Profile) ?? null);
