@@ -33,6 +33,7 @@
     "vitest": "^3.2.7"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "expo start",
