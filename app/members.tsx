@@ -27,6 +27,7 @@ import {
   MemberRow,
 } from '../lib/data';
 import { colors, radius, spacing, type } from '../lib/theme';
+import { FEATURES } from '../lib/features';
 
 // Registered per-screen in this codebase (see chats.tsx, feed.tsx) so a screen
 // never depends on another having been loaded first.
@@ -99,7 +100,7 @@ export default function MembersScreen() {
   const onRemove = (m: MemberRow) =>
     Alert.alert(
       'Remove from chapter?',
-      `${displayName(m)} loses access to chapter events, chats, and dues. They can be added back later.`,
+      `${displayName(m)} loses access to chapter events${FEATURES.dues ? ', chats, and dues' : ' and chats'}. They can be added back later.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

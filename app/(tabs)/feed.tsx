@@ -23,10 +23,18 @@ import {
   ReportReason,
 } from '../../lib/data';
 import { colors, radius, spacing, type } from '../../lib/theme';
+import { FEATURES } from '../../lib/features';
+import { Redirect } from 'expo-router';
 
 dayjs.extend(relativeTime);
 
-export default function FeedScreen() {
+/** The feed is cut from 1.0 (lib/features.ts); a deep link lands on Home. */
+export default function FeedRoute() {
+  if (!FEATURES.feed) return <Redirect href="/" />;
+  return <FeedScreen />;
+}
+
+function FeedScreen() {
   const { session, profile } = useSession();
   const userId = session?.user.id;
   const isStudent = profile?.account_type === 'student';

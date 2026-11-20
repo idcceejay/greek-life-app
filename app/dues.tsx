@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 import { Avatar, BackHeader, Card, Icon, Pill } from '../components/ui';
 import { Sheet } from '../components/Sheet';
@@ -31,8 +31,15 @@ import {
   MyCharge,
 } from '../lib/dues';
 import { colors, iconSize, radius, spacing, type } from '../lib/theme';
+import { FEATURES } from '../lib/features';
 
-export default function DuesScreen() {
+/** Dues is switched off for 1.0 (lib/features.ts); a deep link lands on Home. */
+export default function DuesRoute() {
+  if (!FEATURES.dues) return <Redirect href="/" />;
+  return <DuesScreen />;
+}
+
+function DuesScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
   const { membership } = useMyOrg(userId);

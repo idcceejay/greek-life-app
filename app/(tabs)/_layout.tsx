@@ -4,9 +4,11 @@ import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useSession } from '../../lib/useSession';
 import { colors, iconSize } from '../../lib/theme';
 import { Icon, IconName } from '../../components/ui';
+import { FEATURES } from '../../lib/features';
 
 /**
- * 5-tab bar per the UI Layout PDF: Map · Chats · Home · Calendar · Feed.
+ * Tab bar per the UI Layout PDF: Map · Chats · Home · Calendar · Feed. The Feed
+ * tab is hidden while FEATURES.feed is off (cut from 1.0).
  * Home is a normal tab (it's a place, not an action), so all five share one
  * style: Ionicons outline when idle, filled when selected. The icon is
  * decorative — the tab's `title` is its accessible name.
@@ -78,7 +80,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="feed"
-        options={{ title: 'Feed', tabBarIcon: (p) => <TabIcon {...p} name="newspaper" /> }}
+        options={{
+          title: 'Feed',
+          tabBarIcon: (p) => <TabIcon {...p} name="newspaper" />,
+          // href: null removes the tab from the bar while the feature is off.
+          ...(FEATURES.feed ? {} : { href: null }),
+        }}
       />
     </Tabs>
   );

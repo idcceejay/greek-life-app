@@ -46,15 +46,19 @@ export const money = (cents: number) =>
 // ---------------------------------------------------------------------------
 // Member: what do I owe?
 // ---------------------------------------------------------------------------
-export function useMyCharges() {
+export function useMyCharges(enabled = true) {
   const [charges, setCharges] = useState<MyCharge[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase.rpc('my_charges');
     setCharges((data as MyCharge[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     refresh();

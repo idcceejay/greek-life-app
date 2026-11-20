@@ -19,6 +19,7 @@ import {
 } from '../../lib/data';
 import { useMyCharges, useOrgDues } from '../../lib/dues';
 import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
+import { FEATURES } from '../../lib/features';
 
 /** "fraternity" → "Fraternity" for the label above the chapter name. */
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -66,14 +67,17 @@ export default function HomeScreen() {
   const { membership, loading: orgLoading, refresh: refreshOrg } = useMyOrg(userId);
   const { events, refresh: refreshEvents } = useEvents(membership?.org.id);
   const { chats, refresh: refreshChats } = useChats(userId);
-  const { outstanding: duesOwed, refresh: refreshDues } = useMyCharges();
+  const { outstanding: duesOwed, refresh: refreshDues } = useMyCharges(FEATURES.dues);
   const { count: pendingCount, refresh: refreshPending } = usePendingCount(membership?.org.id);
   const isAdmin = membership?.role === 'admin';
   // Setup progress is admin-only (only admins can do the steps), so the roster
-  // and dues summary are only fetched for admins.
+  // and dues summary are only fetched for admins. Dues is skipped entirely
+  // while FEATURES.dues is off.
   const adminOrgId = isAdmin ? membership?.org.id : undefined;
   const { active: activeMembers, refresh: refreshMembers } = useMembers(adminOrgId);
-  const { members: duesRows, refresh: refreshOrgDues } = useOrgDues(adminOrgId);
+  const { members: duesRows, refresh: refreshOrgDues } = useOrgDues(
+    FEATURES.dues ? adminOrgId : undefined,
+  );
 
   const [showOrg, setShowOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
@@ -115,15 +119,21 @@ export default function HomeScreen() {
       done: events.length > 0,
       go: () => router.push({ pathname: '/(tabs)/calendar', params: { new: '1' } }),
     },
-    {
-      label: 'Set up dues',
-      done: duesRows.some((m) => m.owed_cents > 0 || m.paid_cents > 0),
-      go: () => router.push('/dues'),
-    },
+    ...(FEATURES.dues
+      ? [
+          {
+            label: 'Set up dues',
+            done: duesRows.some((m) => m.owed_cents > 0 || m.paid_cents > 0),
+            go: () => router.push('/dues'),
+          },
+        ]
+      : []),
   ];
   const doneCount = setupSteps.filter((st) => st.done).length;
   const nextStep = setupSteps.find((st) => !st.done);
   const showSetup = isAdmin && !!nextStep;
+  const membersWarn = isAdmin && pendingCount > 0;
+  const membersSubtitle = membersWarn ? `${pendingCount} waiting to join` : 'Roster and roles';
   const newEvent = () => router.push({ pathname: '/(tabs)/calendar', params: { new: '1' } });
 
   const initials =
@@ -301,33 +311,51 @@ export default function HomeScreen() {
               <Text style={[type.headline, s.tileTitle]}>Live Map</Text>
               <Text style={type.subhead}>See who's around</Text>
             </Card>
-            <Card
-              style={[s.block, s.half]}
-              onPress={() => router.push('/dues')}
-              accessibilityLabel={`Dues. ${duesOwed > 0 ? `$${(duesOwed / 100).toFixed(0)} due` : 'All paid up'}`}
-            >
-              <IconTile name="wallet" />
-              <Text style={[type.headline, s.tileTitle]}>Dues</Text>
-              <Text
-                style={[
-                  type.subhead,
-                  duesOwed > 0 && { color: colors.warning, fontWeight: '600' },
-                ]}
+            {FEATURES.dues ? (
+              <Card
+                style={[s.block, s.half]}
+                onPress={() => router.push('/dues')}
+                accessibilityLabel={`Dues. ${duesOwed > 0 ? `$${(duesOwed / 100).toFixed(0)} due` : 'All paid up'}`}
               >
-                {duesOwed > 0 ? `$${(duesOwed / 100).toFixed(0)} due` : 'All paid up'}
-              </Text>
-            </Card>
+                <IconTile name="wallet" />
+                <Text style={[type.headline, s.tileTitle]}>Dues</Text>
+                <Text
+                  style={[
+                    type.subhead,
+                    duesOwed > 0 && { color: colors.warning, fontWeight: '600' },
+                  ]}
+                >
+                  {duesOwed > 0 ? `$${(duesOwed / 100).toFixed(0)} due` : 'All paid up'}
+                </Text>
+              </Card>
+            ) : (
+              // Dues is off for 1.0, so Members takes its slot (and the
+              // separate Members row below is skipped).
+              <Card
+                style={[s.block, s.half]}
+                onPress={() => router.push('/members')}
+                accessibilityLabel={`Members. ${membersSubtitle}`}
+              >
+                <IconTile name="people" />
+                <Text style={[type.headline, s.tileTitle]}>Members</Text>
+                <Text
+                  style={[type.subhead, membersWarn && { color: colors.warning, fontWeight: '600' }]}
+                >
+                  {membersSubtitle}
+                </Text>
+              </Card>
+            )}
           </View>
         )}
 
         {/* Members. Pending requests are invisible until an admin sees them, so
             the count is surfaced here rather than only inside the screen. */}
-        {membership && (
+        {membership && FEATURES.dues && (
           <RowCard
             icon="people"
             title="Members"
-            subtitle={isAdmin && pendingCount > 0 ? `${pendingCount} waiting to join` : 'Roster and roles'}
-            warn={isAdmin && pendingCount > 0}
+            subtitle={membersSubtitle}
+            warn={membersWarn}
             onPress={() => router.push('/members')}
             trailing={
               isAdmin && pendingCount > 0 ? (
@@ -350,16 +378,18 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/chats')}
         />
 
-        <RowCard
-          icon="megaphone"
-          title="Campus Feed"
-          subtitle={
-            profile?.account_type === 'student'
-              ? 'Anonymous posts from your campus'
-              : 'Verify a .edu email to unlock'
-          }
-          onPress={() => router.push('/(tabs)/feed')}
-        />
+        {FEATURES.feed && (
+          <RowCard
+            icon="megaphone"
+            title="Campus Feed"
+            subtitle={
+              profile?.account_type === 'student'
+                ? 'Anonymous posts from your campus'
+                : 'Verify a .edu email to unlock'
+            }
+            onPress={() => router.push('/(tabs)/feed')}
+          />
+        )}
       </ScrollView>
 
       {/* Create/join org modal */}
