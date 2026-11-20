@@ -1,0 +1,26 @@
+name: Issue to PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: The number of the issue that the agent works on
+        type: string
+        required: true
+
+jobs:
+  change:
+    environment: preview
+    env:
+      ISSUE_NUMBER: ${{ inputs.issue_number }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Make the change and open a pull request
+        run: bash .eas/agents/make-change.sh
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: issue-to-pr-log
+          path: /tmp/agent-change/agent-output/**/*
