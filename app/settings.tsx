@@ -26,6 +26,7 @@ import {
 } from '../lib/data';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
+import { friendlyError } from '../lib/errors';
 
 const SUPPORT_EMAIL = 'support@rallyorgs.com';
 const PRIVACY_URL = 'https://rallyorgs.com/privacy';
@@ -67,7 +68,7 @@ export default function SettingsScreen() {
       username: username.trim().toLowerCase(),
     });
     if (!res.ok) {
-      setErr(res.error.includes('unique') ? 'That username is taken.' : res.error);
+      setErr(/unique|duplicate/i.test(res.error) ? 'That username is taken.' : friendlyError(res.error));
       return;
     }
     setSaved(true);
@@ -91,7 +92,7 @@ export default function SettingsScreen() {
     const res = await deleteMyAccount();
     setDeleting(false);
     if (!res.ok) {
-      setErr(res.error);
+      setErr(friendlyError(res.error));
       return;
     }
     setShowDelete(false);

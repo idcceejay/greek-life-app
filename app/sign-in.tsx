@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
+import { friendlyError } from '../lib/errors';
 
 /**
  * Email OTP sign-in: enter email → Supabase emails an 8-digit code → verify.
@@ -40,7 +41,7 @@ export default function SignInScreen() {
       options: { shouldCreateUser: true },
     });
     setBusy(false);
-    if (err) setError(err.message);
+    if (err) setError(friendlyError(err));
     else setStage('code');
   };
 
@@ -53,7 +54,7 @@ export default function SignInScreen() {
       type: 'email',
     });
     setBusy(false);
-    if (err) setError(err.message);
+    if (err) setError(friendlyError(err));
     else router.replace('/onboarding');
   };
 

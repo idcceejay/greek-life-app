@@ -20,6 +20,7 @@ import {
 import { useMyCharges, useOrgDues } from '../../lib/dues';
 import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
 import { FEATURES } from '../../lib/features';
+import { friendlyError } from '../../lib/errors';
 
 /** "fraternity" → "Fraternity" for the label above the chapter name. */
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -156,7 +157,7 @@ export default function HomeScreen() {
       return setErr(
         res.error === 'students_only'
           ? 'Only verified students can create an organization.'
-          : res.error,
+          : friendlyError(res.error),
       );
     setShowOrg(false);
     setOrgName('');
@@ -171,7 +172,7 @@ export default function HomeScreen() {
         ? `Request sent to ${org.name} — an admin needs to approve it.`
         : res.error.includes('duplicate')
           ? `You already have a request in with ${org.name}.`
-          : res.error,
+          : friendlyError(res.error),
     );
   };
 

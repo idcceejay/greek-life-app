@@ -17,6 +17,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 dayjs.extend(customParseFormat);
 import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
+import { friendlyError } from '../lib/errors';
 
 /**
  * First-run profile setup. Calls the ensure_profile RPC, which also detects
@@ -47,7 +48,7 @@ export default function OnboardingScreen() {
     });
     setBusy(false);
     if (err) {
-      setError(err.message.includes('unique') ? 'That username is taken.' : err.message);
+      setError(/unique|duplicate/i.test(err.message) ? 'That username is taken.' : friendlyError(err));
       return;
     }
     if (data && (data as { ok: boolean }).ok === false) {

@@ -9,6 +9,7 @@ import { Avatar, Card, ScreenTitle } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useChats, createGroupChat, joinChatWithCode } from '../../lib/data';
 import { colors, radius, spacing, type } from '../../lib/theme';
+import { friendlyError } from '../../lib/errors';
 
 dayjs.extend(relativeTime);
 
@@ -53,7 +54,7 @@ export default function ChatsScreen() {
     if (!userId) return;
     if (name.trim().length < 2) return setErr('Give the group a name.');
     const res = await createGroupChat(name.trim(), membership?.org.id ?? null);
-    if (!res.ok) return setErr(res.error);
+    if (!res.ok) return setErr(friendlyError(res.error));
     setShowNew(false);
     setName('');
     refresh();
@@ -66,7 +67,7 @@ export default function ChatsScreen() {
     const res = await joinChatWithCode(code);
     if (!res.ok)
       return setJoinErr(
-        res.error === 'invalid_or_expired' ? 'That code is invalid or expired.' : res.error,
+        res.error === 'invalid_or_expired' ? 'That code is invalid or expired.' : friendlyError(res.error),
       );
     setShowJoin(false);
     setCode('');

@@ -25,6 +25,7 @@ import {
 import { colors, radius, spacing, type } from '../../lib/theme';
 import { FEATURES } from '../../lib/features';
 import { Redirect } from 'expo-router';
+import { friendlyError } from '../../lib/errors';
 
 dayjs.extend(relativeTime);
 
@@ -66,7 +67,7 @@ function FeedScreen() {
     flash(
       res.ok
         ? 'Thanks — that post is hidden from your feed and our team will review it within 24 hours.'
-        : `Could not report: ${res.error}`,
+        : friendlyError(res.error, 'Could not report that.'),
     );
     refresh();
   };
@@ -77,7 +78,7 @@ function FeedScreen() {
     flash(
       res.ok
         ? 'Blocked. You won’t see their posts or messages.'
-        : res.error ?? 'Could not block that person.',
+        : friendlyError(res.error, 'Could not block that person.'),
     );
     refresh();
   };
@@ -88,7 +89,7 @@ function FeedScreen() {
     setErr(null);
     if (body.trim().length < 3) return setErr('Write something first.');
     const res = await createPost(body);
-    if (!res.ok) return setErr(res.error);
+    if (!res.ok) return setErr(friendlyError(res.error));
     setShowNew(false);
     setBody('');
   };

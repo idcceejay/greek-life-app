@@ -32,6 +32,7 @@ import {
 } from '../lib/dues';
 import { colors, iconSize, radius, spacing, type } from '../lib/theme';
 import { FEATURES } from '../lib/features';
+import { friendlyError } from '../lib/errors';
 
 /** Dues is switched off for 1.0 (lib/features.ts); a deep link lands on Home. */
 export default function DuesRoute() {
@@ -104,7 +105,7 @@ function DuesScreen() {
     setBusy(charge.id);
     const res = await startCheckout(charge.id);
     setBusy(null);
-    if (!res.ok) return flash(res.error);
+    if (!res.ok) return flash(friendlyError(res.error));
     Linking.openURL(res.url);
   };
 
@@ -113,7 +114,7 @@ function DuesScreen() {
     setBusy('stripe');
     const res = await startStripeOnboarding(membership.org.id);
     setBusy(null);
-    if (!res.ok) return flash(res.error);
+    if (!res.ok) return flash(friendlyError(res.error));
     Linking.openURL(res.url);
   };
 
@@ -135,7 +136,7 @@ function DuesScreen() {
       Math.round(dollars * 100),
       dueDate ? dueDate.format('YYYY-MM-DD') : null,
     );
-    if (!res.ok) return setErr(res.error);
+    if (!res.ok) return setErr(friendlyError(res.error));
     setShowNew(false);
     setName('');
     setAmount('');
@@ -152,7 +153,7 @@ function DuesScreen() {
         text: 'Record payment',
         onPress: async () => {
           const res = await recordManualPayment(chargeId, amountCents, 'manual');
-          if (!res.ok) return flash(res.error);
+          if (!res.ok) return flash(friendlyError(res.error));
           flash('Payment recorded.');
           refreshOrg();
           if (openMember && membership?.org.id) {

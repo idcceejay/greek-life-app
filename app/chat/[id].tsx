@@ -30,6 +30,7 @@ import {
 } from '../../lib/data';
 import { supabase } from '../../lib/supabase';
 import { colors, radius, spacing, type } from '../../lib/theme';
+import { friendlyError } from '../../lib/errors';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,7 +56,7 @@ export default function ChatScreen() {
     if (!reportOn) return;
     const res = await reportContent('message', reportOn.id, reason);
     setReportOn(null);
-    setModMsg(res.ok ? 'Reported. Our team reviews within 24 hours.' : res.error);
+    setModMsg(res.ok ? 'Reported. Our team reviews within 24 hours.' : friendlyError(res.error));
     setTimeout(() => setModMsg(null), 4000);
   };
 
@@ -63,7 +64,7 @@ export default function ChatScreen() {
     if (!reportOn?.sender_id) return;
     const res = await blockUser(reportOn.sender_id);
     setReportOn(null);
-    setModMsg(res.ok ? 'Blocked.' : res.error);
+    setModMsg(res.ok ? 'Blocked.' : friendlyError(res.error));
     setTimeout(() => setModMsg(null), 4000);
   };
 
@@ -78,7 +79,7 @@ export default function ChatScreen() {
       setInviteErr(
         res.error === 'admins_only'
           ? 'Only group admins can create invite codes.'
-          : res.error,
+          : friendlyError(res.error),
       );
   };
 
@@ -97,7 +98,7 @@ export default function ChatScreen() {
           ? 'Only group admins can add members.'
           : res.error === 'not_same_campus'
             ? 'That person is not on your campus.'
-            : res.error,
+            : friendlyError(res.error),
       );
   };
 

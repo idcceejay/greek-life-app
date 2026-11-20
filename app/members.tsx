@@ -28,6 +28,7 @@ import {
 } from '../lib/data';
 import { colors, radius, spacing, type } from '../lib/theme';
 import { FEATURES } from '../lib/features';
+import { friendlyError } from '../lib/errors';
 
 // Registered per-screen in this codebase (see chats.tsx, feed.tsx) so a screen
 // never depends on another having been loaded first.
@@ -80,7 +81,7 @@ export default function MembersScreen() {
     if (!res.ok) {
       // trg_protect_last_admin and the alumni-not-admin trigger both return
       // messages written for people, so show them as-is.
-      Alert.alert('Could not do that', res.error ?? 'Something went wrong.');
+      Alert.alert('Could not do that', friendlyError(res.error));
       return;
     }
     setSelected(null);
@@ -132,7 +133,7 @@ export default function MembersScreen() {
         {error && (
           <Card style={s.card}>
             <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {error}
+              {friendlyError(error)}
             </Text>
             <Pressable
               onPress={refresh}

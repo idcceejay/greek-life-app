@@ -11,6 +11,7 @@ import { useMyOrg, useEvents, createEvent, deleteEvent, EventRow } from '../../l
 import { addToPhoneCalendar, usePhoneCalendar } from '../../lib/usePhoneCalendar';
 import { groupBySource, PhoneEvent } from '../../lib/phoneCalendarCore';
 import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
+import { friendlyError } from '../../lib/errors';
 
 const MODES = ['Day', 'Week', 'Month'] as const;
 type Mode = (typeof MODES)[number];
@@ -165,7 +166,7 @@ export default function CalendarScreen() {
       starts_at: when,
       rrule: repeat,
     });
-    if (!res.ok) return setErr(res.error);
+    if (!res.ok) return setErr(friendlyError(res.error));
     setShowNew(false);
     setSelected(dayjs(when));
     refresh();

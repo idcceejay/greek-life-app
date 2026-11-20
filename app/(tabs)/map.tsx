@@ -18,6 +18,7 @@ import { useSession } from '../../lib/useSession';
 import { useLiveMap, milesBetween, MapPin } from '../../lib/useLiveMap';
 import { supabase } from '../../lib/supabase';
 import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
+import { friendlyError } from '../../lib/errors';
 
 const CAMPUS_FALLBACK = { latitude: 33.948, longitude: -83.3773 };
 
@@ -81,7 +82,7 @@ export default function MapScreen() {
     if (res.ok) setCheckinMsg(`Checked in to ${events[0].title} ✓`);
     else if (res.error === 'too_far')
       setCheckinMsg(`Too far away (${Math.round(res.distance_m ?? 0)} m). Get closer and retry.`);
-    else setCheckinMsg(`Couldn't check in: ${res.error}`);
+    else setCheckinMsg(friendlyError(res.error, "Couldn't check in. Try again."));
   };
 
   return (
