@@ -1,0 +1,102 @@
+name: Agentic CI (iOS)
+
+on:
+  pull_request:
+    branches: ['main']
+    types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
+    if: ${{ !github.event.pull_request.draft }}
+
+jobs:
+  fingerprint:
+    type: fingerprint
+    environment: preview
+
+  get_build:
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: agent
+      simulator: true
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build:
+    type: build
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: agent
+
+  repack:
+    type: repack
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    params:
+      build_id: ${{ needs.get_build.outputs.build_id }}
+      profile: agent
+
+  check:
+    needs: [get_build]
+    after: [build, repack]
+    environment: preview
+    env:
+      BUILD_ID: ${{ after.build.outputs.build_id || after.repack.outputs.build_id }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body || 'The pull request has no description.' }}
+    outputs:
+      verdict: ${{ steps.check.outputs.verdict }}
+      session_url: ${{ steps.check.outputs.session_url }}
+      build_id: ${{ steps.check.outputs.build_id }}
+      commit: ${{ steps.check.outputs.commit }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: check
+        name: Test the pull request on a remote iOS Simulator
+        run: |
+          set -euo pipefail
+          source .eas/agents/start-session.sh ios "$BUILD_ID" "PR check" agentic-ci
+          {
+            cat .eas/agents/check-pr.md
+            printf '\n## Pull request\n\n%s\n\n%s\n\n' "$PR_TITLE" "$PR_BODY"
+            cat agent-output/device.md
+          } > agent-output/prompt.md
+
+          env -u EXPO_TOKEN -u EXPO_TOKEN_SIMULATOR -u GITHUB_TOKEN \
+            timeout 20m bash .eas/agents/run-agent.sh agent-output/prompt.md device || true
+
+          set-output verdict "$(head -n 1 agent-output/evidence/verdict.md 2> /dev/null || echo 'FAIL: The agent did not write a verdict.')"
+          set-output session_url "$(node -p 'require("/tmp/session.json").deviceRunSessionUrl')"
+          set-output build_id "$BUILD_ID"
+          set-output commit "$(git rev-parse --short HEAD)"
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: agentic-ci-evidence
+          path: agent-output/evidence/**/*
+
+  comment:
+    type: github-comment
+    after: [check]
+    params:
+      payload: |
+        ## Agentic CI (iOS)
+
+        **Verdict:** ${{ after.check.outputs.verdict || 'FAIL: The check job did not finish. See the workflow run.' }}
+
+        **Commit:** ${{ after.check.outputs.commit || 'unknown' }}
+
+        - [Session recording](${{ after.check.outputs.session_url }})
+        - [Agent report and screenshots](${{ workflow.url }})
+        - [Try this build in your browser](https://expo.dev/accounts/${{ account.name }}/projects/${{ app.slug }}/simulator-sessions/create?buildId=${{ after.check.outputs.build_id }})
+
+  result:
+    after: [check]
+    if: ${{ !startsWith(after.check.outputs.verdict, 'PASS') }}
+    steps:
+      - run: |
+          echo "The verdict of the agent is not PASS. See the comment on the pull request."
+          exit 1

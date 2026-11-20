@@ -51,3 +51,7 @@ _setup-report.txt
 
 # Python cache from .claude/skills scripts
 __pycache__/
+
+# Expo agentic workflows (session token + agent output)
+.env.eas-simulator
+agent-output/

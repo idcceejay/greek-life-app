@@ -1,0 +1,83 @@
+name: Bug triage (iOS)
+
+on:
+  app_store_connect:
+    beta_feedback:
+      types: [screenshot, crash]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: The number of the issue with the bug report
+        type: string
+        required: true
+
+jobs:
+  intake:
+    if: ${{ !inputs.issue_number }}
+    environment: preview
+    env:
+      FEEDBACK_URL: ${{ app_store_connect.beta_feedback.url }}
+    outputs:
+      issue_number: ${{ steps.file.outputs.issue_number }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - id: file
+        name: File the TestFlight report as a GitHub issue
+        run: |
+          set -euo pipefail
+          EXPO_TOKEN="$EXPO_TOKEN_SIMULATOR" npx --yes eas-cli@latest testflight:feedback "$FEEDBACK_URL" --json > /tmp/feedback.json
+          node .eas/agents/feedback-issue.mjs /tmp/feedback.json /tmp/issue.md > /tmp/issue-title.txt
+          ISSUE_NUMBER=$(node .eas/agents/github.mjs create-issue "$(cat /tmp/issue-title.txt)" /tmp/issue.md bug testflight)
+          set-output issue_number "$ISSUE_NUMBER"
+
+  fingerprint:
+    type: fingerprint
+    environment: preview
+
+  get_build:
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: agent
+      simulator: true
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build:
+    type: build
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: agent
+
+  repack:
+    type: repack
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    params:
+      build_id: ${{ needs.get_build.outputs.build_id }}
+      profile: agent
+
+  reproduce:
+    needs: [get_build]
+    after: [intake, build, repack]
+    environment: preview
+    env:
+      BUILD_ID: ${{ after.build.outputs.build_id || after.repack.outputs.build_id }}
+      ISSUE_NUMBER: ${{ inputs.issue_number || after.intake.outputs.issue_number }}
+      RUN_URL: ${{ workflow.url }}
+      PLATFORM: ios
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Reproduce the bug on a remote iOS Simulator
+        run: bash .eas/agents/reproduce.sh
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: bug-triage-evidence
+          path: agent-output/evidence/**/*

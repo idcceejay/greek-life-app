@@ -24,6 +24,12 @@
       "ios": { "simulator": false },
       "channel": "preview"
     },
+    "agent": {
+      "extends": "base",
+      "distribution": "internal",
+      "environment": "preview",
+      "ios": { "simulator": true }
+    },
     "production": {
       "extends": "base",
       "autoIncrement": true,
