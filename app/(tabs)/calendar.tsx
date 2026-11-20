@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -36,6 +46,9 @@ function nextSameSlot(d: dayjs.Dayjs) {
 }
 
 export default function CalendarScreen() {
+  // Largest Dynamic Type sizes: stack the New-event pickers (UNFORGET A6).
+  const { fontScale } = useWindowDimensions();
+  const bigText = fontScale >= 1.35;
   const { session } = useSession();
   const userId = session?.user.id;
   const { membership, loading: orgLoading } = useMyOrg(userId);
@@ -507,28 +520,34 @@ export default function CalendarScreen() {
             accessibilityLabel="Location, optional"
           />
 
-          <View style={s.pickerRow}>
+          {/* At the largest text sizes the compact pickers clip ("10/", "4:…"),
+              so the label stacks above a full-width wheel instead (UNFORGET A6). */}
+          <View style={[s.pickerRow, bigText && s.pickerRowStacked]}>
             <Text style={s.pickerLabel}>Date</Text>
             <DateTimePicker
               value={when}
               mode="date"
-              display="compact"
+              display={bigText ? 'spinner' : 'compact'}
               accentColor={colors.accent}
               onChange={(_, d) => d && setWhen(d)}
+              style={bigText ? s.pickerWide : undefined}
+              accessibilityLabel={`Date, ${dayjs(when).format('dddd, MMMM D')}`}
             />
           </View>
-          <View style={s.pickerRow}>
+          <View style={[s.pickerRow, bigText && s.pickerRowStacked]}>
             <Text style={s.pickerLabel}>Time</Text>
             <DateTimePicker
               value={when}
               mode="time"
-              display="compact"
+              display={bigText ? 'spinner' : 'compact'}
               accentColor={colors.accent}
               onChange={(_, d) => d && setWhen(d)}
+              style={bigText ? s.pickerWide : undefined}
+              accessibilityLabel={`Time, ${dayjs(when).format('h:mm A')}`}
             />
           </View>
 
-          <View style={s.pickerRow}>
+          <View style={[s.pickerRow, bigText && s.pickerRowStacked]}>
             <Text style={s.pickerLabel}>Repeat</Text>
             <View style={s.repeatChips}>
               {REPEATS.map((r) => (
@@ -835,9 +854,13 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.l,
     paddingVertical: 8,
     minHeight: 48,
+    flexWrap: 'wrap',
+    gap: spacing.s,
   },
+  pickerRowStacked: { flexDirection: 'column', alignItems: 'stretch' },
+  pickerWide: { alignSelf: 'stretch' },
   pickerLabel: { fontSize: 16, color: colors.ink, fontWeight: '500' },
-  repeatChips: { flexDirection: 'row', gap: spacing.s },
+  repeatChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
   repeatChip: {
     borderRadius: radius.pill,
     paddingHorizontal: 14,
