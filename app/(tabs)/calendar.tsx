@@ -17,7 +17,22 @@ import dayjs from 'dayjs';
 import { Card, ErrorText, Icon, ScreenTitle } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
 import { useSession } from '../../lib/useSession';
-import { useMyOrg, useEvents, createEvent, deleteEvent, EventRow } from '../../lib/data';
+import {
+  useMyOrg,
+  useEvents,
+  createEvent,
+  deleteEvent,
+  updateEvent,
+  useRsvps,
+  useMyRsvps,
+  setRsvp,
+  clearRsvp,
+  RSVP_OPTIONS,
+  RSVP_LABEL,
+  EventRow,
+  RsvpStatus,
+} from '../../lib/data';
+import { nextRsvp, realEventId, rsvpCountLine, summarizeRsvps } from '../../lib/rsvpCore';
 import { addToPhoneCalendar, usePhoneCalendar } from '../../lib/usePhoneCalendar';
 import { groupBySource, PhoneEvent } from '../../lib/phoneCalendarCore';
 import { colors, iconSize, radius, spacing, type } from '../../lib/theme';
@@ -69,6 +84,15 @@ export default function CalendarScreen() {
   const [repeat, setRepeat] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [showCals, setShowCals] = useState(false);
+  // Event detail sheet (RSVP, add to phone, edit, delete) and edit mode.
+  const [openEvent, setOpenEvent] = useState<EventRow | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [rsvpBusy, setRsvpBusy] = useState(false);
+  const [rsvpErr, setRsvpErr] = useState<string | null>(null);
+  const openId = openEvent ? realEventId(openEvent.id) : undefined;
+  const { rows: rsvpRows, refresh: refreshRsvps } = useRsvps(openId);
+  const { byEvent: myRsvps, refresh: refreshMyRsvps } = useMyRsvps(userId);
+  const rsvp = summarizeRsvps(rsvpRows, userId);
   // Apple / Google / Outlook calendars already on this phone, read on-device.
   const phone = usePhoneCalendar(selected);
 
@@ -156,7 +180,38 @@ export default function CalendarScreen() {
     }
     setRepeat(null);
     setErr(null);
+    setEditingId(null);
     setShowNew(true);
+  };
+
+  const canEdit = (e: EventRow) => isAdmin || e.created_by === userId;
+
+  // Edit reuses the New-event sheet. Repeating events edit the base event.
+  const openEdit = (e: EventRow) => {
+    const id = realEventId(e.id);
+    const base = liveEvents.find((x) => x.id === id) ?? e;
+    setOpenEvent(null);
+    setEditingId(id);
+    setTitle(base.title);
+    setPlace(base.location_text ?? '');
+    setWhen(new Date(base.starts_at));
+    setRepeat(base.rrule);
+    setPrefilled(false);
+    setErr(null);
+    // Let the detail sheet finish closing (iOS shows one modal at a time).
+    setTimeout(() => setShowNew(true), 250);
+  };
+
+  const answerRsvp = async (status: RsvpStatus) => {
+    if (!openId || !userId || rsvpBusy) return;
+    setRsvpErr(null);
+    setRsvpBusy(true);
+    const next = nextRsvp(rsvp.mine, status);
+    const res = next ? await setRsvp(openId, userId, next) : await clearRsvp(openId, userId);
+    setRsvpBusy(false);
+    if (!res.ok) return setRsvpErr(friendlyError(res.error, "Couldn't save your RSVP."));
+    refreshRsvps();
+    refreshMyRsvps();
   };
 
   // Home's "New event" buttons link here with ?new=1. Wait for events so the
@@ -173,14 +228,18 @@ export default function CalendarScreen() {
     setErr(null);
     if (!membership || !userId) return;
     if (title.trim().length < 2) return setErr('Give the event a title.');
-    const res = await createEvent(membership.org.id, userId, {
+    const fields = {
       title: title.trim(),
       location_text: place.trim(),
       starts_at: when,
       rrule: repeat,
-    });
+    };
+    const res = editingId
+      ? await updateEvent(editingId, fields)
+      : await createEvent(membership.org.id, userId, fields);
     if (!res.ok) return setErr(friendlyError(res.error));
     setShowNew(false);
+    setEditingId(null);
     setSelected(dayjs(when));
     refresh();
   };
@@ -199,7 +258,9 @@ export default function CalendarScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteEvent(realId);
+            const res = await deleteEvent(realId);
+            if (!res.ok) Alert.alert("Couldn't delete", friendlyError(res.error));
+            setOpenEvent(null);
             refresh();
           },
         },
@@ -427,17 +488,20 @@ export default function CalendarScreen() {
           return (
           <Pressable
             key={e.id}
-            onPress={phone.status !== 'unavailable' ? () => addToPhone(e) : undefined}
+            onPress={() => {
+              setRsvpErr(null);
+              setOpenEvent(e);
+            }}
             onLongPress={() => confirmDelete(e)}
             delayLongPress={400}
             accessible
             accessibilityRole="button"
             accessibilityLabel={`${e.title}, ${dayjs(e.starts_at).format('dddd MMMM D, h:mm A')}${
               e.location_text ? `, at ${e.location_text}` : ''
-            }${e.rrule ? ', repeats yearly' : ''}`}
-            accessibilityHint={
-              phone.status !== 'unavailable' ? "Adds it to your phone's calendar" : undefined
-            }
+            }${e.rrule ? ', repeats yearly' : ''}${
+              myRsvps[realEventId(e.id)] ? `, you said ${RSVP_LABEL[myRsvps[realEventId(e.id)]]}` : ''
+            }`}
+            accessibilityHint="Shows details and lets you RSVP"
             // Long-press is unreachable under VoiceOver, so expose delete as a
             // rotor action too (SC 2.5.1 / 2.1.1).
             accessibilityActions={
@@ -468,6 +532,12 @@ export default function CalendarScreen() {
                   {mode !== 'Day' && <Text style={type.caption}>{e.location_text ?? ''}</Text>}
                 </View>
                 <Text style={type.headline}>{e.title}</Text>
+                {myRsvps[realEventId(e.id)] && (
+                  <Text style={s.myRsvp} accessibilityElementsHidden>
+                    {myRsvps[realEventId(e.id)] === 'going' ? '✓ ' : ''}
+                    {RSVP_LABEL[myRsvps[realEventId(e.id)]]}
+                  </Text>
+                )}
               </View>
             </Card>
           </Pressable>
@@ -475,18 +545,124 @@ export default function CalendarScreen() {
         })}
         {visible.length > 0 && (
           <Text style={s.hintText}>
-            {phone.status !== 'unavailable'
-              ? "Tap a chapter event to add it to your phone's calendar. Hold to delete it (creator or admin)."
-              : 'Hold an event to delete it (creator or admin).'}
+            Tap an event to RSVP or see who's going. Hold to delete it (creator or admin).
           </Text>
         )}
       </ScrollView>
 
+      {/* Event detail: RSVP, who's going, add to phone, edit, delete */}
+      <Sheet visible={!!openEvent} onClose={() => setOpenEvent(null)} label="Event details">
+        {openEvent && (
+          <ScrollView style={s.calsScroll} contentContainerStyle={s.modal}>
+            <Text style={type.title2} accessibilityRole="header">
+              {openEvent.title}
+            </Text>
+            <Text style={type.subhead}>
+              {dayjs(openEvent.starts_at).format('dddd, MMMM D · h:mm A')}
+              {openEvent.rrule ? ' · repeats yearly' : ''}
+            </Text>
+            {openEvent.location_text ? (
+              <Text style={type.subhead}>{openEvent.location_text}</Text>
+            ) : null}
+
+            <Text style={[type.headline, { marginTop: spacing.s }]}>Are you going?</Text>
+            <View style={s.rsvpRow} accessibilityRole="radiogroup">
+              {RSVP_OPTIONS.map((o) => {
+                const on = rsvp.mine === o.key;
+                return (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => answerRsvp(o.key)}
+                    disabled={rsvpBusy}
+                    accessibilityRole="radio"
+                    accessibilityLabel={o.label}
+                    accessibilityState={{ checked: on, disabled: rsvpBusy }}
+                    accessibilityHint={on ? 'Tap again to clear your answer' : undefined}
+                    style={({ pressed }) => [
+                      s.rsvpBtn,
+                      on && s.rsvpBtnOn,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    {on && <Icon name="checkmark" size={iconSize.s} color="#fff" />}
+                    <Text style={[s.rsvpBtnText, on && { color: '#fff' }]}>{o.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {rsvpErr && <ErrorText style={s.err}>{rsvpErr}</ErrorText>}
+
+            <Text style={type.caption}>{rsvpCountLine(rsvp)}</Text>
+            {rsvp.going.length > 0 && (
+              <Text style={type.subhead}>
+                <Text style={{ fontWeight: '600' }}>Going: </Text>
+                {rsvp.going.join(', ')}
+              </Text>
+            )}
+            {rsvp.maybe.length > 0 && (
+              <Text style={type.subhead}>
+                <Text style={{ fontWeight: '600' }}>Maybe: </Text>
+                {rsvp.maybe.join(', ')}
+              </Text>
+            )}
+            {rsvp.notGoing.length > 0 && (
+              <Text style={type.subhead}>
+                <Text style={{ fontWeight: '600' }}>Can't go: </Text>
+                {rsvp.notGoing.join(', ')}
+              </Text>
+            )}
+
+            {phone.status !== 'unavailable' && (
+              <Pressable
+                style={[s.mBtn, s.mBtnGhost]}
+                onPress={() => addToPhone(openEvent)}
+                accessibilityRole="button"
+                accessibilityLabel="Add to my phone's calendar"
+              >
+                <Text style={[s.mBtnText, { color: colors.ink }]}>Add to my calendar</Text>
+              </Pressable>
+            )}
+            {canEdit(openEvent) && (
+              <View style={s.modalBtns}>
+                <Pressable
+                  style={[s.mBtn, s.mBtnGhost]}
+                  onPress={() => confirmDelete(openEvent)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete event"
+                >
+                  <Text style={[s.mBtnText, { color: colors.danger }]}>Delete</Text>
+                </Pressable>
+                <Pressable
+                  style={s.mBtn}
+                  onPress={() => openEdit(openEvent)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit event"
+                >
+                  <Text style={s.mBtnText}>Edit</Text>
+                </Pressable>
+              </View>
+            )}
+            <Pressable
+              style={[s.mBtn, s.mBtnGhost]}
+              onPress={() => setOpenEvent(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text style={[s.mBtnText, { color: colors.ink }]}>Close</Text>
+            </Pressable>
+          </ScrollView>
+        )}
+      </Sheet>
+
       {/* New event sheet */}
-      <Sheet visible={showNew} onClose={() => setShowNew(false)} label="New event">
+      <Sheet
+        visible={showNew}
+        onClose={() => setShowNew(false)}
+        label={editingId ? 'Edit event' : 'New event'}
+      >
         <View style={s.modal}>
           <Text style={[type.title2, { marginBottom: spacing.s }]} accessibilityRole="header">
-            New event
+            {editingId ? 'Edit event' : 'New event'}
           </Text>
           <TextInput
             style={s.input}
@@ -594,9 +770,9 @@ export default function CalendarScreen() {
               style={s.mBtn}
               onPress={submitNew}
               accessibilityRole="button"
-              accessibilityLabel="Create event"
+              accessibilityLabel={editingId ? 'Save changes' : 'Create event'}
             >
-              <Text style={s.mBtnText}>Create</Text>
+              <Text style={s.mBtnText}>{editingId ? 'Save' : 'Create'}</Text>
             </Pressable>
           </View>
         </View>
@@ -856,6 +1032,21 @@ const s = StyleSheet.create({
     gap: spacing.s,
   },
   pickerRowStacked: { flexDirection: 'column', alignItems: 'stretch' },
+  myRsvp: { ...type.caption, color: colors.accent, fontWeight: '600' },
+  rsvpRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
+  rsvpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 44,
+    paddingHorizontal: spacing.l,
+    borderRadius: radius.pill,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.separator,
+  },
+  rsvpBtnOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  rsvpBtnText: { fontSize: 16, fontWeight: '600', color: colors.ink },
   pickerWide: { alignSelf: 'stretch' },
   pickerLabel: { fontSize: 16, color: colors.ink, fontWeight: '500' },
   repeatChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },

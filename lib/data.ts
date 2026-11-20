@@ -4,6 +4,10 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, supabaseConfigured } from './supabase';
+import { RsvpRow, RsvpStatus } from './rsvpCore';
+
+export { RSVP_OPTIONS, RSVP_LABEL } from './rsvpCore';
+export type { RsvpRow, RsvpStatus } from './rsvpCore';
 
 // ---------------------------------------------------------------------------
 // Types (shape of rows the app reads)
@@ -158,6 +162,114 @@ export async function createEvent(
 
 export async function deleteEvent(eventId: string) {
   const { error } = await supabase.from('events').delete().eq('id', eventId);
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+/** Edit an event. RLS allows the creator or a chapter admin (events_update). */
+export async function updateEvent(
+  eventId: string,
+  fields: { title: string; location_text: string; starts_at: Date; rrule?: string | null },
+) {
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      title: fields.title,
+      location_text: fields.location_text || null,
+      starts_at: fields.starts_at.toISOString(),
+      rrule: fields.rrule ?? null,
+    })
+    .eq('id', eventId)
+    .select('id');
+  if (error) return { ok: false as const, error: error.message };
+  // RLS hides rows you can't edit, so "0 rows" means no permission.
+  if (!data || data.length === 0) return { ok: false as const, error: 'not_authorized' };
+  return { ok: true as const };
+}
+
+// ---------------------------------------------------------------------------
+// RSVPs (event_rsvps). Members write only their own row, and only for events
+// in their chapter (0012). Everyone in the chapter can read who's coming.
+// ---------------------------------------------------------------------------
+export function useRsvps(eventId: string | undefined) {
+  const [rows, setRows] = useState<RsvpRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!supabaseConfigured || !eventId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const { data } = await supabase
+      .from('event_rsvps')
+      .select('user_id, status, profiles(full_name, username)')
+      .eq('event_id', eventId);
+    const list =
+      (data as unknown as
+        | {
+            user_id: string;
+            status: RsvpStatus;
+            profiles: { full_name: string | null; username: string | null } | null;
+          }[]
+        | null) ?? [];
+    setRows(
+      list.map((r) => ({
+        user_id: r.user_id,
+        status: r.status,
+        name: r.profiles?.full_name ?? r.profiles?.username ?? 'Member',
+      })),
+    );
+    setLoading(false);
+  }, [eventId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { rows, loading, refresh };
+}
+
+/** The signed-in member's own answers, keyed by event id (for card badges). */
+export function useMyRsvps(userId: string | undefined) {
+  const [byEvent, setByEvent] = useState<Record<string, RsvpStatus>>({});
+
+  const refresh = useCallback(async () => {
+    if (!supabaseConfigured || !userId) return;
+    const { data } = await supabase
+      .from('event_rsvps')
+      .select('event_id, status')
+      .eq('user_id', userId);
+    const map: Record<string, RsvpStatus> = {};
+    for (const r of (data as { event_id: string; status: RsvpStatus }[] | null) ?? []) {
+      map[r.event_id] = r.status;
+    }
+    setByEvent(map);
+  }, [userId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { byEvent, refresh };
+}
+
+export async function setRsvp(eventId: string, userId: string, status: RsvpStatus) {
+  const { error } = await supabase
+    .from('event_rsvps')
+    .upsert(
+      { event_id: eventId, user_id: userId, status, responded_at: new Date().toISOString() },
+      { onConflict: 'event_id,user_id' },
+    );
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+export async function clearRsvp(eventId: string, userId: string) {
+  const { error } = await supabase
+    .from('event_rsvps')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('user_id', userId);
   return error ? { ok: false as const, error: error.message } : { ok: true as const };
 }
 
