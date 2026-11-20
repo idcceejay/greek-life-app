@@ -30,6 +30,4 @@
   applied to the hosted Supabase project was not checked.
 - CLAUDE.md's "App state" lists the anonymous Feed as working. UNFORGET **U2** says the feed is deferred
   out of v1 (target 1.1).
-- `Project-Plan/Launch-Plan.md` still says the launch target is **08/31/2026**. Today is 2026-11-20, so
-  that date has passed. The plan needs a new date.
 - CLAUDE.md's "Next tasks" list dates from July/August and may not match UNFORGET's current 🔴 rows.

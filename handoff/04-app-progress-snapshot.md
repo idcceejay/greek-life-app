@@ -6,8 +6,7 @@ Facts below come from git history and `Project-Plan/UNFORGET.md` on `main`. Noth
 
 - Expo SDK **54** (pinned), React 19.1.0, React Native 0.81.5, Expo Router, Supabase (Postgres + PostGIS, email OTP).
 - Bundle id `com.rallygreek.rally`, App Store Connect app 6797647574, Expo owner `idc_ceejay`.
-- Original launch target **08/31/2026** has passed. No build has reached TestFlight (S4).
-- Commits on `main`: 15 in July, 22 in August, 0 in September (the Windows PC died 09/30), 18 in October, 0 in November before this session.
+- No build has reached TestFlight (S4).
 
 ## Recent work on `main` (newest first)
 
@@ -60,7 +59,6 @@ P2 (moderation queue migration), P3 (Stripe, blocked on LLC), A8 (dues late fee)
 
 ## Suggested starting questions for the new plan
 
-1. What's the new launch date?
-2. S2 + S9: how should a reviewer or test agent sign in (demo account, password sign-in, or a fixed test code)?
-3. U3: SDK 57 upgrade or EAS dev build? This affects S4 (TestFlight) too.
-4. Finish the agentic-workflow setup now (`02-remaining-setup-steps.md`), or after TestFlight works?
+1. S2 + S9: how should a reviewer or test agent sign in (demo account, password sign-in, or a fixed test code)?
+2. U3: SDK 57 upgrade or EAS dev build? This affects S4 (TestFlight) too.
+3. Finish the agentic-workflow setup now (`02-remaining-setup-steps.md`), or after TestFlight works?
