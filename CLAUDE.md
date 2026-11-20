@@ -1,18 +1,22 @@
 # Rally (app name; repo/folder still "greek-life-app") · Project context for Claude
 
-Read this fully before doing anything. It is the handoff from the Cowork session
-that built this repo (July 8–10, 2026).
+Read this fully before doing anything. Originally the handoff from the Cowork session
+that built this repo (July 8–10, 2026); refreshed 11/20/26 for the solo finish.
 
 ## What this is
 
 Rally — all-in-one app for Greek life / campus orgs: calendar, group chat, live member map
 (Snap-map style), anonymous campus feed, chapter dues. Apple HIG + bento-grid design —
 reference: `Project-Plan/Greek Life App — UI Layout.pdf`. Successor to
-cooperparrish/College-Orgs-App. Team: Cooper Parrish + Ceejay Raut (owner of this
+cooperparrish/College-Orgs-App. **Team (from 11/20/26): Ceejay Raut alone** (owner of this
 machine; GitHub `idcceejay`; beginner-friendly explanations appreciated — avoid jargon,
-give exact click-by-click steps for anything outside the code).
+give exact click-by-click steps for anything outside the code). Cooper's backend/security
+lane and TJ's screens lane are covered by the Claude Code agents in `.claude/agents/`
+(guide: `Project-Plan/Agents-How-To.md`).
 
-**Launch target: 08/31/2026 (App Store). Re-baselined plan: `Project-Plan/Launch-Plan.md`.**
+**The 08/31/2026 launch was missed. Current plan with dates: `Project-Plan/Launch-Plan-v2.md`
+(1.0 submission ~12/01/26, live ~12/08–12/12).** The summer `Launch-Plan.md` and
+`Road-to-App-Store.md` are historical.
 
 ## Naming
 
@@ -79,14 +83,17 @@ rename them mid-flight. Historical docs in `Database/` keep their original filen
 
 - Schema doc: `Database/greek_life_erd_reference_v7.md` (+ v6, both authoritative) and
   `Database/erd_v7.mermaid`.
-- Migrations 0001–0003 are **applied** to the hosted Supabase project (schema, views, RLS).
-- `0004_features.sql` (event check-ins + `checkin_to_event` RPC with PostGIS distance
-  validation, `chat_invites` + `join_chat_via_invite`, sticker pack tables,
-  `get_visible_locations`, `ensure_profile`) — **verify it has been run**; the user was
-  about to run it when the session ended.
-- The `schools` / `school_domains` tables may still be empty or only seeded with the demo
-  UGA rows (`supabase/seed.sql`). Student tier requires the user's real school + domains
-  rows — likely Kennesaw State (kennesaw.edu / students.kennesaw.edu); confirm with user.
+- Migrations **0001–0010 are applied** to the hosted project (checked live 11/20/26).
+- **0011_lock_down_rpcs.sql and 0012_close_probe_leaks.sql are written but NOT yet applied**
+  (the owner pastes them, 0011 first). They close real holes found 11/20: the Stripe
+  bookkeeping RPCs were callable by anyone, any user could join any chat, RSVPs crossed
+  chapters, and birthday/phone were readable campus-wide. Update this line once applied.
+- `supabase/rls_probe.sql` is the cross-chapter security test. It is ONE statement that
+  ends in RAISE EXCEPTION, so it always rolls back; the "error" is the report. Run it after
+  every migration that touches RLS or RPCs (rally-security agent).
+- The location-circles branch (`worktree-location-circles`, Mac only until pushed) has its
+  own `0011_location_circles.sql`. Renumber it to the next free number when merging (1.1).
+- Kennesaw State + `kennesaw.edu` / `students.kennesaw.edu` are seeded (live, 11/20/26).
 
 ## App state
 
@@ -95,25 +102,36 @@ Working end-to-end against the live Supabase project (July 29, 2026):
   gate in `app/(tabs)/_layout.tsx` via `lib/useSession.ts`. Sign out = tap Home avatar.
   Supabase email templates (Confirm signup + Magic Link) customized to send `{{ .Token }}`
   via Gmail SMTP.
-- `lib/data.ts` is the single live-data layer (orgs, events, chats, messages, posts,
-  invites, user search). Screens must render empty states; `lib/mock.ts` demo data renders
-  ONLY when `.env` is absent (design-preview mode).
+- `lib/data.ts` is the single live-data layer (orgs, events, RSVPs, chats, messages, posts,
+  invites, user search). Screens must render empty states. There is NO mock/demo data: a
+  build without `.env` shows "Rally isn't configured". Show errors with
+  `friendlyError()` (`lib/errors.ts`) and `<ErrorText>` (`components/ui.tsx`).
+- **Feature switches: `lib/features.ts`.** For 1.0, `dues: false` (hidden until LLC +
+  Stripe; returns as "Money", see Launch-Plan-v2 Phase 5) and `feed: false` (cut 08/24).
+  Don't delete dues/feed code; check the switch before linking to either.
 - Home: org create/join flow (`create_organization` RPC), live next-event/chat/feed cards.
 - Calendar: Day (agenda) / Week (Sun–Sat strip) / Month (grid) all functional, prev/next,
   event dots, create via native date+time pickers, `FREQ=YEARLY` repeat expanded
-  client-side ±1 year, hold-to-delete.
+  client-side ±1 year, hold-to-delete. Tap an event → detail sheet with RSVP (Going /
+  Maybe / Can't go), who's going, add to phone calendar, edit/delete (creator or admin).
+  Apple/Google phone calendars show alongside (expo-calendar, on-device only).
 - Chats: real list, atomic `create_group_chat` RPC, realtime messages, invite codes
   (`create_chat_invite` + `join_chat_via_invite`), add-by-username (`search_users` +
   `add_chat_member_by_username`).
-- Feed: real anonymous posts + voting (students only).
+- Feed: real anonymous posts + voting (students only). **Hidden in 1.0** (feature switch).
+- Members (`app/members.tsx`): roster, approve/decline join requests, roles. Settings:
+  account deletion, block list, support/privacy/terms links (rallyorgs.com).
+- Dues (`app/dues.tsx`, `lib/dues.ts`): ledger works, **hidden in 1.0** (feature switch).
 - Map: react-native-maps loaded dynamically (Expo Go lacks the native module → styled
   fallback), foreground-only pings, ghost mode, location-verified check-in.
   **No background tracking / speed features — owner explicitly rejected those.**
 - `components/Sheet.tsx`: shared spring bottom sheet (keyboard-aware). Use it for all
   modal forms — do not go back to RN `Modal animationType="slide"` (too slow).
 
-Migrations 0001–0006 are ALL APPLIED to the hosted project. Anything RLS blocks from the
-client in two steps should become a SECURITY DEFINER RPC (see 0005/0006 for the pattern).
+Anything RLS blocks from the client in two steps should become a SECURITY DEFINER RPC (see
+0005/0006 for the pattern) with an auth.uid() + role check inside, `SET search_path =
+public`, and `REVOKE EXECUTE ... FROM PUBLIC, anon` (since 0011, new functions no longer
+default to PUBLIC/anon; server-only ones must also revoke from `authenticated`).
 
 Test data: `supabase/dev_seed_test_school.sql` exists but the consumer email domains were
 REMOVED again (real .edu required for new signups). Existing accounts
@@ -124,33 +142,32 @@ REMOVED again (real .edu required for new signups). Existing accounts
 Auth emails: Gmail SMTP is configured and both templates send `{{ .Token }}`. Sign-in works.
 Codes are 8 digits, not 6 — don't cap the input at 6.
 
-## Next tasks (in priority order)
+## Next tasks
 
-1. Seed the user's real school + `.edu` domains (Kennesaw State — confirm) so new members
-   can sign up as students.
-2. Member management: approve/decline pending join requests, promote to admin/treasurer,
-   roster screen. Nothing in the UI does this yet.
-3. RSVP buttons on events; event edit (create/delete exist).
-4. Calendar sync: `expo-calendar` device integration (Apple/Google accounts on the phone).
-   ICS export (`calendar_feeds`) needs an Edge Function. Google OAuth two-way sync and
-   "Flare" = post-launch (Flare has no public API).
-5. Stickers UI (schema live: `sticker_packs`/`stickers`, `messages.sticker_id`; needs a
-   `stickers` storage bucket).
-6. Push notifications (`devices`/`notifications` tables + Edge Function fan-out).
-7. Moderation UI (report/block) — schema exists, REQUIRED for App Review with an anonymous
-   feed. Then EAS Build → TestFlight (Apple Developer enrollment: ask; it's the long pole
-   for the 08/31 launch).
+The dated plan is `Project-Plan/Launch-Plan-v2.md`; the blocker list is the 🔴 rows in
+`Project-Plan/UNFORGET.md`. Short version (11/20/26):
+1. Owner pastes 0011 then 0012, then runs `supabase/rls_probe.sql` (expect no LEAK lines).
+2. App Review mailbox account + demo chapter (`Project-Plan/App-Review-Notes.md`).
+3. rally-release agent → `eas build --profile production` → `eas submit` → TestFlight.
+4. Screenshots, App Store Connect pricing/availability/privacy → submit for review.
+After launch: push notifications, SDK 57 upgrade, location circles, pagination, then Money
+(Stripe after the LLC) and later the anonymous feed.
 
 ## Conventions
 
-- Design tokens in `lib/theme.ts` (accent #5A5CF0, canvas #F2F1F7, radius 20 cards).
+- Design tokens in `lib/theme.ts` (since 10/01/26: slate #374151 + rose accent #E11D48,
+  canvas #F3F4F6, radius 20 cards). Never hard-code colours.
 - Money = integer cents. Timestamps = timestamptz. RLS on everything; client never
   writes scores/status fields maintained by triggers.
 - Push to GitHub `idcceejay/greek-life-app` — on the Mac, `gh auth login` already
   authenticates git. Never ask the owner to paste a token into chat. Never push without
   asking.
 - Validate SQL with pglast before handing to the user; they paste migrations into the
-  Supabase SQL editor manually (Ctrl+A replace, one file at a time).
+  Supabase SQL editor manually (Ctrl+A replace, one file at a time). Against the live DB,
+  Claude runs only SELECTs or self-rolling-back statements, and asks first (each call is a
+  permission prompt for the owner).
+- Checks: `npm run typecheck` and `npm test` (Vitest, `tests/`); GitHub Actions runs both
+  on every push (`.github/workflows/ci.yml`).
 
 <!-- unforget:recall:start -->
 ## Deferred Work Index
