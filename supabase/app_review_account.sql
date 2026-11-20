@@ -3,7 +3,7 @@
 --
 -- Why: Rally has no password; Supabase emails an 8-digit code. An App Review
 -- reviewer therefore needs a mailbox they can open themselves. That mailbox is
--- a consumer address (gmail.com), which signs up as alumni tier, and the live
+-- a consumer address (outlook.com), which signs up as alumni tier, and the live
 -- member map is student-gated — so the reviewer would be locked out of a core
 -- feature. This grants that one account the student tier.
 --
@@ -18,7 +18,7 @@
 
 DO $$
 DECLARE
-  v_email  citext := 'REPLACE_ME@gmail.com';   -- <<< set to the review mailbox
+  v_email  citext := 'REPLACE_ME@outlook.com';   -- <<< set to the review mailbox
   v_school uuid;
   v_user   uuid;
 BEGIN
@@ -62,13 +62,13 @@ SELECT u.email, p.username, p.account_type, p.edu_verified, s.name AS school
   FROM public.profiles p
   JOIN auth.users u ON u.id = p.id
   LEFT JOIN public.schools s ON s.id = p.school_id
- WHERE u.email::citext = 'REPLACE_ME@gmail.com';
+ WHERE u.email::citext = 'REPLACE_ME@outlook.com';
 
 -- ============================================================================
 -- TEARDOWN (run if the review account is ever retired):
 --   UPDATE public.profiles SET account_type = 'alumni', edu_verified = false,
 --          school_id = NULL, school_email = NULL
---    WHERE id = (SELECT id FROM auth.users WHERE email::citext = 'REPLACE_ME@gmail.com');
+--    WHERE id = (SELECT id FROM auth.users WHERE email::citext = 'REPLACE_ME@outlook.com');
 --   DELETE FROM public.school_affiliations
---    WHERE user_id = (SELECT id FROM auth.users WHERE email::citext = 'REPLACE_ME@gmail.com');
+--    WHERE user_id = (SELECT id FROM auth.users WHERE email::citext = 'REPLACE_ME@outlook.com');
 -- ============================================================================

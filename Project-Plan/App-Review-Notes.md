@@ -7,12 +7,15 @@ to sign into.
 
 ## Setup, in order
 
-1. Create a free mailbox for review only, e.g. `rallyreview@gmail.com`.
-   Use a password that is not reused anywhere else.
+1. Create a free mailbox for review only at https://outlook.com, e.g.
+   `rallyorgsreview@outlook.com`. Use a password that is not reused anywhere
+   else. Outlook is used rather than Gmail because Google's signup
+   verification repeatedly blocked account creation.
 2. In Rally, sign in with that address once and finish onboarding. This creates
    the `auth.users` and `profiles` rows.
 3. Run `supabase/app_review_account.sql` in the Supabase SQL editor, with
-   `REPLACE_ME@gmail.com` swapped for the real address in all three places.
+   `REPLACE_ME@outlook.com` swapped for the real address. Use find-and-replace:
+   it appears 4 times (twice in the live SQL, twice in the teardown comments).
    It promotes that one account to the student tier so the member map is
    reachable. It does not make consumer domains campus-wide.
 4. Join or create a chapter on that account and add a couple of events, so the
@@ -33,7 +36,7 @@ to sign into.
 >
 > 1. On the sign-in screen, enter: <REVIEW_EMAIL>
 > 2. Tap "Send code". An 8-digit code is emailed to that address.
-> 3. Open that mailbox at https://mail.google.com using
+> 3. Open that mailbox at https://outlook.com using
 >    <REVIEW_EMAIL> / <MAILBOX_PASSWORD>
 > 4. Enter the 8-digit code in the app to finish signing in.
 >
