@@ -12,7 +12,7 @@ import { Sheet } from '../../components/Sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Card, Pill, ScreenTitle } from '../../components/ui';
+import { Card, ErrorText, Pill, ScreenTitle } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import {
   usePosts,
@@ -226,9 +226,7 @@ function FeedScreen() {
               accessibilityHint="Your post is anonymous to other students"
             />
             {err && (
-              <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-                {err}
-              </Text>
+              <ErrorText style={s.err}>{err}</ErrorText>
             )}
             <View style={s.modalBtns}>
               <Pressable

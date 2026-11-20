@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Avatar, Card, ScreenTitle } from '../../components/ui';
+import { Avatar, Card, ErrorText, ScreenTitle } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useChats, createGroupChat, joinChatWithCode } from '../../lib/data';
 import { colors, radius, spacing, type } from '../../lib/theme';
@@ -162,9 +162,7 @@ export default function ChatsScreen() {
               accessibilityLabel="Group name"
             />
             {err && (
-              <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-                {err}
-              </Text>
+              <ErrorText style={s.err}>{err}</ErrorText>
             )}
             <View style={s.modalBtns}>
               <Pressable
@@ -203,9 +201,7 @@ export default function ChatsScreen() {
             accessibilityLabel="Invite code"
           />
           {joinErr && (
-            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {joinErr}
-            </Text>
+            <ErrorText style={s.err}>{joinErr}</ErrorText>
           )}
           <View style={s.modalBtns}>
             <Pressable

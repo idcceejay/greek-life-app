@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
-import { Card, Icon, ScreenTitle } from '../../components/ui';
+import { Card, ErrorText, Icon, ScreenTitle } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
 import { useSession } from '../../lib/useSession';
 import { useMyOrg, useEvents, createEvent, deleteEvent, EventRow } from '../../lib/data';
@@ -579,9 +579,7 @@ export default function CalendarScreen() {
           )}
 
           {err && (
-            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {err}
-            </Text>
+            <ErrorText style={s.err}>{err}</ErrorText>
           )}
           <View style={s.modalBtns}>
             <Pressable

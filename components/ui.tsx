@@ -237,3 +237,37 @@ const s = StyleSheet.create({
   backText: { color: colors.accent, fontSize: 17 },
   headerSpacer: { width: 88 },
 });
+
+/**
+ * Error message with an alert icon, so an error never relies on red alone
+ * (the danger red sits close to the rose accent; UNFORGET A7). Screens pass
+ * their own text style (usually `s.err`) for size and spacing. Announced to
+ * VoiceOver as soon as it appears.
+ */
+export function ErrorText({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.ComponentProps<typeof Text>['style'];
+}) {
+  return (
+    <View
+      style={errStyles.row}
+      accessible
+      accessibilityRole="alert"
+      accessibilityLiveRegion="assertive"
+    >
+      <View style={errStyles.icon}>
+        <Icon name="alert-circle" size={iconSize.s} color={colors.danger} />
+      </View>
+      <Text style={[{ color: colors.danger }, style, errStyles.text]}>{children}</Text>
+    </View>
+  );
+}
+
+const errStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  icon: { paddingTop: 1 },
+  text: { flex: 1 },
+});

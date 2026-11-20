@@ -4,7 +4,7 @@ import { Sheet } from '../../components/Sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import dayjs from 'dayjs';
-import { ActionChip, Avatar, Card, Chevron, Icon, IconName, IconTile } from '../../components/ui';
+import { ActionChip, Avatar, Card, Chevron, ErrorText, Icon, IconName, IconTile } from '../../components/ui';
 import { useSession } from '../../lib/useSession';
 import {
   useMyOrg,
@@ -424,7 +424,7 @@ export default function HomeScreen() {
               </>
             )}
             {pendingMsg && <Text style={[type.subhead, { marginTop: spacing.s }]}>{pendingMsg}</Text>}
-            {err && <Text style={s.err}>{err}</Text>}
+            {err && <ErrorText style={s.err}>{err}</ErrorText>}
             <Pressable
               style={[s.mBtn, s.mBtnGhost, { marginTop: spacing.m }]}
               onPress={() => setShowOrg(false)}

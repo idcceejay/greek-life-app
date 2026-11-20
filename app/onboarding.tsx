@@ -18,6 +18,7 @@ dayjs.extend(customParseFormat);
 import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 import { friendlyError } from '../lib/errors';
+import { ErrorText } from '../components/ui';
 
 /**
  * First-run profile setup. Calls the ensure_profile RPC, which also detects
@@ -102,9 +103,7 @@ export default function OnboardingScreen() {
           </Text>
 
           {error && (
-            <Text style={s.error} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {error}
-            </Text>
+            <ErrorText style={s.error}>{error}</ErrorText>
           )}
 
           <Pressable

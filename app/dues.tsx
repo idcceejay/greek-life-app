@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
-import { Avatar, BackHeader, Card, Icon, Pill } from '../components/ui';
+import { Avatar, BackHeader, Card, ErrorText, Icon, Pill } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import { useMyOrg } from '../lib/data';
@@ -427,9 +427,7 @@ function DuesScreen() {
             accessibilityHint="Format month slash day slash year"
           />
           {err && (
-            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {err}
-            </Text>
+            <ErrorText style={s.err}>{err}</ErrorText>
           )}
           <View style={s.sheetBtns}>
             <Pressable

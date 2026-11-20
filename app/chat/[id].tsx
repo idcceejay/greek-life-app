@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import dayjs from 'dayjs';
 import * as Clipboard from 'expo-clipboard';
-import { Avatar } from '../../components/ui';
+import { Avatar, ErrorText } from '../../components/ui';
 import { Sheet } from '../../components/Sheet';
 import { useSession } from '../../lib/useSession';
 import {
@@ -300,9 +300,7 @@ export default function ChatScreen() {
           )}
 
           {inviteErr && (
-            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {inviteErr}
-            </Text>
+            <ErrorText style={s.err}>{inviteErr}</ErrorText>
           )}
           <Pressable
             style={s.doneBtn}

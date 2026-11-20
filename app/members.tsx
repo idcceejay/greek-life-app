@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Avatar, BackHeader, Card, Chevron } from '../components/ui';
+import { Avatar, BackHeader, Card, Chevron, ErrorText } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import {
@@ -132,9 +132,7 @@ export default function MembersScreen() {
 
         {error && (
           <Card style={s.card}>
-            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {friendlyError(error)}
-            </Text>
+            <ErrorText style={s.err}>{friendlyError(error)}</ErrorText>
             <Pressable
               onPress={refresh}
               hitSlop={12}

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Avatar, BackHeader, Card } from '../components/ui';
+import { Avatar, BackHeader, Card, ErrorText } from '../components/ui';
 import { Sheet } from '../components/Sheet';
 import { useSession } from '../lib/useSession';
 import {
@@ -140,9 +140,7 @@ export default function SettingsScreen() {
             accessibilityLabel="Username"
           />
           {err && (
-            <Text style={s.err} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {err}
-            </Text>
+            <ErrorText style={s.err}>{err}</ErrorText>
           )}
           <Pressable
             style={s.saveBtn}

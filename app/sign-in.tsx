@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { colors, radius, spacing, type } from '../lib/theme';
 import { friendlyError } from '../lib/errors';
+import { ErrorText } from '../components/ui';
 
 /**
  * Email OTP sign-in: enter email → Supabase emails an 8-digit code → verify.
@@ -108,9 +109,7 @@ export default function SignInScreen() {
           )}
 
           {error && (
-            <Text style={s.error} accessibilityLiveRegion="assertive" accessibilityRole="alert">
-              {error}
-            </Text>
+            <ErrorText style={s.error}>{error}</ErrorText>
           )}
 
           <Pressable
